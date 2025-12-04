@@ -1,34 +1,29 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Management;
 using System.Runtime.InteropServices;
-using System.Text;
-using Microsoft.Win32;
+using System.Threading.Tasks;
+using Windows.Devices.Display;
+using Windows.Devices.Enumeration;
 
 namespace MonitorSwitcher
 {
+    /// <summary>
+    /// Display helper using only modern Windows 11 APIs:
+    /// - Windows.Devices.Display.DisplayMonitor (WinRT) for monitor enumeration
+    /// - QueryDisplayConfig/SetDisplayConfig (CCD API) for display configuration
+    /// </summary>
     public static class DisplayHelper
     {
-        [DllImport("user32.dll")]
-        private static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
-
-        [DllImport("user32.dll")]
-        private static extern bool EnumDisplaySettings(string deviceName, int modeNum, ref DEVMODE devMode);
-
-        [DllImport("user32.dll")]
-        private static extern int ChangeDisplaySettingsEx(string? lpszDeviceName, ref DEVMODE lpDevMode, IntPtr hwnd, uint dwflags, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        private static extern int ChangeDisplaySettingsEx(string? lpszDeviceName, IntPtr lpDevMode, IntPtr hwnd, uint dwflags, IntPtr lParam);
-
-        // SetDisplayConfig API - modern Windows display configuration
+        #region Modern CCD API Imports
+        
         [DllImport("user32.dll")]
         private static extern int GetDisplayConfigBufferSizes(uint flags, out uint numPathArrayElements, out uint numModeInfoArrayElements);
 
         [DllImport("user32.dll")]
-        private static extern int QueryDisplayConfig(uint flags, ref uint numPathArrayElements, [Out] DISPLAYCONFIG_PATH_INFO[] pathArray,
-            ref uint numModeInfoArrayElements, [Out] DISPLAYCONFIG_MODE_INFO[] modeInfoArray, out DISPLAYCONFIG_TOPOLOGY_ID currentTopologyId);
+        private static extern int QueryDisplayConfig(uint flags, ref uint numPathArrayElements, 
+            [Out] DISPLAYCONFIG_PATH_INFO[] pathArray, ref uint numModeInfoArrayElements, 
+            [Out] DISPLAYCONFIG_MODE_INFO[] modeInfoArray, IntPtr currentTopologyId);
 
         [DllImport("user32.dll")]
         private static extern int SetDisplayConfig(uint numPathArrayElements, DISPLAYCONFIG_PATH_INFO[]? pathArray,
@@ -39,91 +34,24 @@ namespace MonitorSwitcher
         
         [DllImport("user32.dll")]
         private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_TARGET_DEVICE_NAME requestPacket);
-        
-        [DllImport("user32.dll")]
-        private static extern int QueryDisplayConfig(uint flags, ref uint numPathArrayElements, [Out] DISPLAYCONFIG_PATH_INFO[] pathArray,
-            ref uint numModeInfoArrayElements, [Out] DISPLAYCONFIG_MODE_INFO[] modeInfoArray, IntPtr currentTopologyId);
 
-        private const int ENUM_CURRENT_SETTINGS = -1;
-        private const uint CDS_UPDATEREGISTRY = 0x01;
-        private const uint CDS_SET_PRIMARY = 0x10;
-        private const uint CDS_NORESET = 0x10000000;
-        private const uint CDS_RESET = 0x40000000;
-        private const int DISP_CHANGE_SUCCESSFUL = 0;
+        #endregion
+
+        #region Constants
         
-        // SetDisplayConfig flags
         private const uint QDC_ALL_PATHS = 0x00000001;
         private const uint QDC_ONLY_ACTIVE_PATHS = 0x00000002;
         private const uint SDC_APPLY = 0x00000080;
-        private const uint SDC_TOPOLOGY_SUPPLIED = 0x00000001;
         private const uint SDC_USE_SUPPLIED_DISPLAY_CONFIG = 0x00000020;
         private const uint SDC_SAVE_TO_DATABASE = 0x00000200;
         private const uint SDC_ALLOW_CHANGES = 0x00000400;
         private const uint DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1;
+        private const uint DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME = 2;
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        private struct DISPLAY_DEVICE
-        {
-            public int cb;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-            public string DeviceName;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-            public string DeviceString;
-            public uint StateFlags;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-            public string DeviceID;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-            public string DeviceKey;
-        }
+        #endregion
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        private struct DEVMODE
-        {
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-            public string dmDeviceName;
-            public short dmSpecVersion;
-            public short dmDriverVersion;
-            public short dmSize;
-            public short dmDriverExtra;
-            public uint dmFields;
-            public int dmPositionX;
-            public int dmPositionY;
-            public uint dmDisplayOrientation;
-            public uint dmDisplayFixedOutput;
-            public short dmColor;
-            public short dmDuplex;
-            public short dmYResolution;
-            public short dmTTOption;
-            public short dmCollate;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-            public string dmFormName;
-            public short dmLogPixels;
-            public uint dmBitsPerPel;
-            public uint dmPelsWidth;
-            public uint dmPelsHeight;
-            public uint dmDisplayFlags;
-            public uint dmDisplayFrequency;
-            public uint dmICMMethod;
-            public uint dmICMIntent;
-            public uint dmMediaType;
-            public uint dmDitherType;
-            public uint dmReserved1;
-            public uint dmReserved2;
-            public uint dmPanningWidth;
-            public uint dmPanningHeight;
-        }
+        #region Structures
 
-        private const uint DISPLAY_DEVICE_ATTACHED_TO_DESKTOP = 0x1;
-        private const uint DISPLAY_DEVICE_PRIMARY_DEVICE = 0x4;
-        private const uint DISPLAY_DEVICE_ACTIVE = 0x1;
-        private const uint DM_POSITION = 0x20;
-        private const uint DM_ORIENTATION = 0x80;
-        private const uint DM_PELSWIDTH = 0x80000;
-        private const uint DM_PELSHEIGHT = 0x100000;
-        private const uint DM_DISPLAYFREQUENCY = 0x400000;
-        private const uint DM_BITSPERPEL = 0x40000;
-
-        // Structures for SetDisplayConfig API
         [StructLayout(LayoutKind.Sequential)]
         private struct LUID
         {
@@ -151,7 +79,7 @@ namespace MonitorSwitcher
             public uint scaling;
             public DISPLAYCONFIG_RATIONAL refreshRate;
             public uint scanLineOrdering;
-            public uint targetAvailable;
+            public bool targetAvailable;
             public uint statusFlags;
         }
 
@@ -171,21 +99,71 @@ namespace MonitorSwitcher
         }
 
         [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_2DREGION
+        {
+            public uint cx;
+            public uint cy;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_VIDEO_SIGNAL_INFO
+        {
+            public ulong pixelRate;
+            public DISPLAYCONFIG_RATIONAL hSyncFreq;
+            public DISPLAYCONFIG_RATIONAL vSyncFreq;
+            public DISPLAYCONFIG_2DREGION activeSize;
+            public DISPLAYCONFIG_2DREGION totalSize;
+            public uint videoStandard;
+            public uint scanLineOrdering;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_TARGET_MODE
+        {
+            public DISPLAYCONFIG_VIDEO_SIGNAL_INFO targetVideoSignalInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINTL
+        {
+            public int x;
+            public int y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_SOURCE_MODE
+        {
+            public uint width;
+            public uint height;
+            public uint pixelFormat;
+            public POINTL position;
+        }
+
+        [StructLayout(LayoutKind.Explicit, Size = 48)]
+        private struct DISPLAYCONFIG_MODE_INFO_UNION
+        {
+            [FieldOffset(0)]
+            public DISPLAYCONFIG_TARGET_MODE targetMode;
+            [FieldOffset(0)]
+            public DISPLAYCONFIG_SOURCE_MODE sourceMode;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
         private struct DISPLAYCONFIG_MODE_INFO
         {
             public uint infoType;
             public uint id;
             public LUID adapterId;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 48)]
-            public byte[] modeInfo;
+            public DISPLAYCONFIG_MODE_INFO_UNION info;
         }
 
-        private enum DISPLAYCONFIG_TOPOLOGY_ID : uint
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_DEVICE_INFO_HEADER
         {
-            DISPLAYCONFIG_TOPOLOGY_INTERNAL = 0x00000001,
-            DISPLAYCONFIG_TOPOLOGY_CLONE = 0x00000002,
-            DISPLAYCONFIG_TOPOLOGY_EXTEND = 0x00000004,
-            DISPLAYCONFIG_TOPOLOGY_EXTERNAL = 0x00000008
+            public uint type;
+            public uint size;
+            public LUID adapterId;
+            public uint id;
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -195,7 +173,7 @@ namespace MonitorSwitcher
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
             public string viewGdiDeviceName;
         }
-        
+
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         private struct DISPLAYCONFIG_TARGET_DEVICE_NAME
         {
@@ -211,374 +189,107 @@ namespace MonitorSwitcher
             public string monitorDevicePath;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct DISPLAYCONFIG_DEVICE_INFO_HEADER
-        {
-            public uint type;
-            public uint size;
-            public LUID adapterId;
-            public uint id;
-        }
-        
-        private const uint DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME = 2;
+        #endregion
 
+        #region Public Methods
+
+        /// <summary>
+        /// Gets all displays using modern Windows 11 APIs
+        /// </summary>
         public static List<MonitorInfo> GetAllDisplays()
         {
             var monitors = new List<MonitorInfo>();
             
-            // Get monitor names and display numbers using DisplayConfig API (same as Windows Settings)
-            var displayConfigInfo = GetDisplayConfigInfo();
-            
-            // Get all WMI monitors for disabled monitor detection
-            var allWmiMonitors = GetAllWmiMonitors();
-            var laptopMonitor = allWmiMonitors.FirstOrDefault(m => string.IsNullOrWhiteSpace(m.FriendlyName));
-            
-            // Track which display numbers are used by enabled displays
-            var usedDisplayNumbers = new HashSet<int>();
-
-            // Get active displays using DisplayConfig info
-            foreach (var (gdiName, monitorName, displayNum) in displayConfigInfo)
+            try
             {
-                usedDisplayNumbers.Add(displayNum);
+                // Use WinRT API to get all monitors with correct display numbering
+                var winrtMonitors = GetWinRTMonitorsAsync().GetAwaiter().GetResult();
                 
-                var devMode = new DEVMODE();
-                devMode.dmSize = (short)Marshal.SizeOf(devMode);
-
-                if (EnumDisplaySettings(gdiName, ENUM_CURRENT_SETTINGS, ref devMode))
+                // Sort by target ID to match Windows Settings order
+                winrtMonitors = winrtMonitors.OrderBy(m => m.targetId).ToList();
+                
+                // Get active display configuration using modern CCD API
+                var activeDisplays = GetActiveDisplayConfig();
+                
+                int displayNumber = 1;
+                foreach (var (name, targetId, physicalWidth, physicalHeight) in winrtMonitors)
                 {
-                    // Check if primary
-                    var device = new DISPLAY_DEVICE();
-                    device.cb = Marshal.SizeOf(device);
-                    bool isPrimary = false;
-                    uint deviceNum = 0;
-                    while (EnumDisplayDevices(null, deviceNum, ref device, 0))
-                    {
-                        if (device.DeviceName == gdiName)
-                        {
-                            isPrimary = (device.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) != 0;
-                            break;
-                        }
-                        deviceNum++;
-                        device.cb = Marshal.SizeOf(device);
-                    }
+                    // Try to find matching active display by target ID
+                    var activeMatch = activeDisplays.FirstOrDefault(a => a.targetId == targetId);
                     
-                    string orientation = devMode.dmDisplayOrientation switch
+                    if (activeMatch.gdiName != null)
                     {
-                        0 => "Landscape",
-                        1 => "Portrait",
-                        2 => "Landscape (flipped)",
-                        3 => "Portrait (flipped)",
-                        _ => "Unknown"
-                    };
-
-                    monitors.Add(new MonitorInfo
-                    {
-                        DeviceName = monitorName,
-                        AdapterName = "Intel(R) UHD Graphics 630",
-                        DeviceKey = gdiName,
-                        DisplayNumber = displayNum.ToString(),
-                        Width = (int)devMode.dmPelsWidth,
-                        Height = (int)devMode.dmPelsHeight,
-                        RefreshRate = (int)devMode.dmDisplayFrequency,
-                        Orientation = orientation,
-                        IsPrimary = isPrimary,
-                        IsEnabled = true,
-                        PositionX = devMode.dmPositionX,
-                        PositionY = devMode.dmPositionY
-                    });
-                }
-            }
-
-            // Add disabled monitors - find gaps in display numbers or extra WMI monitors
-            int totalWmiMonitors = allWmiMonitors.Count;
-            int enabledCount = displayConfigInfo.Count;
-            
-            if (totalWmiMonitors > enabledCount)
-            {
-                // Find which display numbers are missing (disabled)
-                // Check numbers 1 through totalWmiMonitors
-                for (int i = 1; i <= totalWmiMonitors; i++)
-                {
-                    if (!usedDisplayNumbers.Contains(i))
-                    {
-                        string disabledName = laptopMonitor?.Name ?? "Unknown Monitor";
-                        
                         monitors.Add(new MonitorInfo
                         {
-                            DeviceName = disabledName,
+                            DeviceName = name,
+                            AdapterName = "Graphics Adapter",
+                            DeviceKey = activeMatch.gdiName,
+                            DisplayNumber = displayNumber.ToString(),
+                            Width = activeMatch.width,
+                            Height = activeMatch.height,
+                            RefreshRate = activeMatch.refreshRate,
+                            Orientation = GetOrientationString(activeMatch.rotation),
+                            IsPrimary = activeMatch.isPrimary,
+                            IsEnabled = true,
+                            PositionX = activeMatch.posX,
+                            PositionY = activeMatch.posY
+                        });
+                    }
+                    else
+                    {
+                        // Disabled monitor
+                        monitors.Add(new MonitorInfo
+                        {
+                            DeviceName = name,
                             AdapterName = "Disabled",
                             DeviceKey = "",
-                            DisplayNumber = i.ToString(),
-                            Width = 0,
-                            Height = 0,
+                            DisplayNumber = displayNumber.ToString(),
+                            Width = (int)physicalWidth,
+                            Height = (int)physicalHeight,
                             RefreshRate = 0,
                             Orientation = "N/A",
                             IsPrimary = false,
-                            IsEnabled = false
+                            IsEnabled = false,
+                            PositionX = 0,
+                            PositionY = 0
                         });
                     }
+                    
+                    displayNumber++;
                 }
             }
-
-            // Sort by display number to match Windows Settings order
-            return monitors.OrderBy(m => int.TryParse(m.DisplayNumber, out int n) ? n : 999).ToList();
-        }
-        
-        /// <summary>
-        /// Gets monitor friendly names using DisplayConfig API (same method Windows Settings uses)
-        /// </summary>
-        private static Dictionary<string, string> GetDisplayConfigMonitorNames()
-        {
-            var result = new Dictionary<string, string>();
-            foreach (var (gdiName, monitorName, _) in GetDisplayConfigInfo())
+            catch (Exception)
             {
-                result[gdiName] = monitorName;
+                // Fallback if WinRT fails - use CCD API only
+                return GetDisplaysFromCCD();
             }
-            return result;
-        }
-        
-        /// <summary>
-        /// Gets full display config info: GDI name, monitor name, and display number
-        /// </summary>
-        private static List<(string GdiName, string MonitorName, int DisplayNumber)> GetDisplayConfigInfo()
-        {
-            var result = new List<(string, string, int)>();
             
-            try
-            {
-                uint numPaths = 0, numModes = 0;
-                GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out numPaths, out numModes);
-                
-                if (numPaths == 0) return result;
-                
-                var paths = new DISPLAYCONFIG_PATH_INFO[numPaths];
-                var modes = new DISPLAYCONFIG_MODE_INFO[numModes];
-                
-                uint pathCount = numPaths, modeCount = numModes;
-                int queryResult = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
-                
-                if (queryResult != 0) return result;
-                
-                for (int i = 0; i < pathCount; i++)
-                {
-                    var path = paths[i];
-                    
-                    // Get source name (\\.\DISPLAY#)
-                    var sourceName = new DISPLAYCONFIG_SOURCE_DEVICE_NAME();
-                    sourceName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
-                    sourceName.header.size = (uint)Marshal.SizeOf<DISPLAYCONFIG_SOURCE_DEVICE_NAME>();
-                    sourceName.header.adapterId = path.sourceInfo.adapterId;
-                    sourceName.header.id = path.sourceInfo.id;
-                    
-                    if (DisplayConfigGetDeviceInfo(ref sourceName) != 0) continue;
-                    
-                    // Get target name (monitor friendly name)
-                    var targetName = new DISPLAYCONFIG_TARGET_DEVICE_NAME();
-                    targetName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
-                    targetName.header.size = (uint)Marshal.SizeOf<DISPLAYCONFIG_TARGET_DEVICE_NAME>();
-                    targetName.header.adapterId = path.targetInfo.adapterId;
-                    targetName.header.id = path.targetInfo.id;
-                    
-                    if (DisplayConfigGetDeviceInfo(ref targetName) != 0) continue;
-                    
-                    if (!string.IsNullOrEmpty(sourceName.viewGdiDeviceName) && 
-                        !string.IsNullOrEmpty(targetName.monitorFriendlyDeviceName))
-                    {
-                        // Extract display number from GDI name (\\.\DISPLAY1 -> 1)
-                        string numStr = new string(sourceName.viewGdiDeviceName.Where(char.IsDigit).ToArray());
-                        int displayNum = int.TryParse(numStr, out int n) ? n : 0;
-                        
-                        result.Add((sourceName.viewGdiDeviceName, targetName.monitorFriendlyDeviceName, displayNum));
-                    }
-                }
-            }
-            catch { }
-            
-            return result;
-        }
-        
-        private static List<WmiMonitorInfo> GetAllWmiMonitors()
-        {
-            var monitors = new List<WmiMonitorInfo>();
-            try
-            {
-                // Get ALL monitors (both active and inactive)
-                using var searcher = new ManagementObjectSearcher(@"root\WMI", "SELECT * FROM WmiMonitorID");
-                foreach (ManagementObject obj in searcher.Get())
-                {
-                    try
-                    {
-                        string? instanceName = obj["InstanceName"]?.ToString();
-                        bool isActive = obj["Active"] as bool? ?? false;
-                        string friendlyName = DecodeWmiString(obj["UserFriendlyName"]);
-                        string mfgName = DecodeWmiString(obj["ManufacturerName"]);
-                        string productCode = DecodeWmiString(obj["ProductCodeID"]);
-
-                        // Build display name - prefer UserFriendlyName
-                        string displayName;
-                        if (!string.IsNullOrWhiteSpace(friendlyName))
-                        {
-                            displayName = friendlyName;
-                        }
-                        else
-                        {
-                            string mfgFullName = mfgName switch
-                            {
-                                "DEL" => "DELL",
-                                "SHP" => "Sharp",
-                                "SAM" => "Samsung",
-                                "LGD" or "GSM" => "LG",
-                                "ACI" => "ASUS",
-                                "ACR" => "Acer",
-                                "BNQ" => "BenQ",
-                                "HWP" => "HP",
-                                "VSC" => "ViewSonic",
-                                "AOC" => "AOC",
-                                "PHL" => "Philips",
-                                _ => mfgName
-                            };
-                            displayName = !string.IsNullOrEmpty(productCode) 
-                                ? $"{mfgFullName} {productCode}" 
-                                : mfgFullName;
-                        }
-                        
-                        // Extract monitor ID from instance name
-                        string monitorId = "";
-                        string uid = "";
-                        if (!string.IsNullOrEmpty(instanceName))
-                        {
-                            var parts = instanceName.Split('\\');
-                            if (parts.Length >= 2) monitorId = parts[1];
-                            var uidMatch = System.Text.RegularExpressions.Regex.Match(instanceName, @"UID(\d+)");
-                            if (uidMatch.Success) uid = uidMatch.Groups[1].Value;
-                        }
-
-                        monitors.Add(new WmiMonitorInfo
-                        {
-                            MonitorId = monitorId,
-                            Name = displayName,
-                            FriendlyName = friendlyName,
-                            Uid = uid,
-                            IsActive = isActive
-                        });
-                    }
-                    catch { }
-                }
-            }
-            catch { }
             return monitors;
         }
 
-
-
-        public static string GetDebugInfo()
-        {
-            var sb = new StringBuilder();
-            var wmiMonitors = GetAllWmiMonitors();
-            sb.AppendLine("=== WMI Monitors ===");
-            foreach (var m in wmiMonitors)
-            {
-                sb.AppendLine($"  {m.MonitorId} = {m.Name} (Active: {m.IsActive})");
-            }
-            
-            sb.AppendLine("\n=== Display Devices ===");
-            var device = new DISPLAY_DEVICE();
-            device.cb = Marshal.SizeOf(device);
-            uint deviceNum = 0;
-            while (EnumDisplayDevices(null, deviceNum, ref device, 0))
-            {
-                if ((device.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) != 0)
-                {
-                    var monitorDevice = new DISPLAY_DEVICE();
-                    monitorDevice.cb = Marshal.SizeOf(monitorDevice);
-                    if (EnumDisplayDevices(device.DeviceName, 0, ref monitorDevice, 0))
-                    {
-                        sb.AppendLine($"  Adapter: {device.DeviceName}");
-                        sb.AppendLine($"    Monitor DeviceID: {monitorDevice.DeviceID}");
-                    }
-                }
-                deviceNum++;
-                device.cb = Marshal.SizeOf(device);
-            }
-            return sb.ToString();
-        }
-
-
-
-        private class WmiMonitorInfo
-        {
-            public string MonitorId { get; set; } = "";
-            public string Name { get; set; } = "";
-            public string FriendlyName { get; set; } = ""; // Raw UserFriendlyName from WMI
-            public string Uid { get; set; } = "";
-            public bool IsActive { get; set; }
-        }
-
-
-
-        private static string DecodeWmiString(object? value)
-        {
-            if (value == null) return "";
-            
-            // Try ushort[] first (most common)
-            if (value is ushort[] ushortArray)
-            {
-                return new string(ushortArray.TakeWhile(c => c != 0).Select(c => (char)c).ToArray()).Trim();
-            }
-            
-            // Try byte[] 
-            if (value is byte[] byteArray)
-            {
-                return Encoding.ASCII.GetString(byteArray).TrimEnd('\0').Trim();
-            }
-            
-            // Try int[] or uint[]
-            if (value is int[] intArray)
-            {
-                return new string(intArray.TakeWhile(c => c != 0).Select(c => (char)c).ToArray()).Trim();
-            }
-            
-            // Try as generic array
-            if (value is Array arr)
-            {
-                var chars = new List<char>();
-                foreach (var item in arr)
-                {
-                    int val = Convert.ToInt32(item);
-                    if (val == 0) break;
-                    chars.Add((char)val);
-                }
-                return new string(chars.ToArray()).Trim();
-            }
-            
-            return value.ToString()?.Trim() ?? "";
-        }
-
-
-
-
-        private const uint DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE = 1;
-
-        public static bool SetPrimaryDisplay(string deviceName)
+        /// <summary>
+        /// Sets the specified display as primary using modern SetDisplayConfig API
+        /// </summary>
+        public static bool SetPrimaryDisplay(string gdiDeviceName)
         {
             try
             {
                 uint numPaths = 0, numModes = 0;
-                int result = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out numPaths, out numModes);
-                if (result != 0) return false;
+                if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out numPaths, out numModes) != 0)
+                    return false;
 
                 var paths = new DISPLAYCONFIG_PATH_INFO[numPaths];
                 var modes = new DISPLAYCONFIG_MODE_INFO[numModes];
 
-                result = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref numPaths, paths, ref numModes, modes, IntPtr.Zero);
-                if (result != 0) return false;
+                uint pathCount = numPaths, modeCount = numModes;
+                if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) != 0)
+                    return false;
 
-                // Find the target path
-                int offsetX = 0;
-                int offsetY = 0;
-                bool found = false;
-
-                for (int i = 0; i < numPaths; i++)
+                // Find paths for the new primary and current primary
+                int newPrimaryPathIdx = -1;
+                int currentPrimaryPathIdx = -1;
+                
+                for (int i = 0; i < pathCount; i++)
                 {
                     var sourceName = new DISPLAYCONFIG_SOURCE_DEVICE_NAME();
                     sourceName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
@@ -588,50 +299,52 @@ namespace MonitorSwitcher
 
                     if (DisplayConfigGetDeviceInfo(ref sourceName) == 0)
                     {
-                        if (sourceName.viewGdiDeviceName == deviceName)
+                        if (sourceName.viewGdiDeviceName == gdiDeviceName)
+                            newPrimaryPathIdx = i;
+                        
+                        // Check if this is current primary (position 0,0)
+                        if (paths[i].sourceInfo.modeInfoIdx < modeCount)
                         {
-                            // Found the new primary
-                            uint modeIdx = paths[i].sourceInfo.modeInfoIdx;
-                            if (modeIdx < numModes && modes[modeIdx].infoType == DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE)
+                            var modeInfo = modes[paths[i].sourceInfo.modeInfoIdx];
+                            if (modeInfo.infoType == 1) // Source mode
                             {
-                                // Read position from byte array (offset 12 for x, 16 for y)
-                                // DISPLAYCONFIG_SOURCE_MODE: width(4), height(4), pixelFormat(4), position(8)
-                                offsetX = BitConverter.ToInt32(modes[modeIdx].modeInfo, 12);
-                                offsetY = BitConverter.ToInt32(modes[modeIdx].modeInfo, 16);
-                                found = true;
-                                break;
+                                if (modeInfo.info.sourceMode.position.x == 0 && 
+                                    modeInfo.info.sourceMode.position.y == 0)
+                                {
+                                    currentPrimaryPathIdx = i;
+                                }
                             }
                         }
                     }
                 }
 
-                if (!found) return false;
+                if (newPrimaryPathIdx < 0 || newPrimaryPathIdx == currentPrimaryPathIdx)
+                    return newPrimaryPathIdx == currentPrimaryPathIdx;
 
-                // Update all source positions
-                for (int i = 0; i < numModes; i++)
+                // Get positions
+                var newPrimaryModeIdx = paths[newPrimaryPathIdx].sourceInfo.modeInfoIdx;
+                var currentPrimaryModeIdx = currentPrimaryPathIdx >= 0 ? paths[currentPrimaryPathIdx].sourceInfo.modeInfoIdx : uint.MaxValue;
+
+                if (newPrimaryModeIdx >= modeCount)
+                    return false;
+
+                int newPrimaryX = modes[newPrimaryModeIdx].info.sourceMode.position.x;
+                int newPrimaryY = modes[newPrimaryModeIdx].info.sourceMode.position.y;
+
+                // Shift all displays so new primary is at (0,0)
+                for (int i = 0; i < modeCount; i++)
                 {
-                    if (modes[i].infoType == DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE)
+                    if (modes[i].infoType == 1) // Source mode
                     {
-                        int x = BitConverter.ToInt32(modes[i].modeInfo, 12);
-                        int y = BitConverter.ToInt32(modes[i].modeInfo, 16);
-
-                        x -= offsetX;
-                        y -= offsetY;
-
-                        byte[] xBytes = BitConverter.GetBytes(x);
-                        byte[] yBytes = BitConverter.GetBytes(y);
-
-                        Array.Copy(xBytes, 0, modes[i].modeInfo, 12, 4);
-                        Array.Copy(yBytes, 0, modes[i].modeInfo, 16, 4);
+                        modes[i].info.sourceMode.position.x -= newPrimaryX;
+                        modes[i].info.sourceMode.position.y -= newPrimaryY;
                     }
                 }
 
-                // Apply
-                result = SetDisplayConfig(numPaths, paths, numModes, modes, 
-                    SDC_APPLY | SDC_USE_SUPPLIED_DISPLAY_CONFIG | SDC_ALLOW_CHANGES | SDC_SAVE_TO_DATABASE);
-
-
-
+                // Apply configuration
+                uint flags = SDC_APPLY | SDC_USE_SUPPLIED_DISPLAY_CONFIG | SDC_SAVE_TO_DATABASE | SDC_ALLOW_CHANGES;
+                int result = SetDisplayConfig(pathCount, paths, modeCount, modes, flags);
+                
                 return result == 0;
             }
             catch
@@ -639,5 +352,189 @@ namespace MonitorSwitcher
                 return false;
             }
         }
+
+        #endregion
+
+        #region Private Methods
+
+        private static async Task<List<(string name, uint targetId, uint physicalWidth, uint physicalHeight)>> GetWinRTMonitorsAsync()
+        {
+            var result = new List<(string, uint, uint, uint)>();
+            
+            var displayMonitors = await DeviceInformation.FindAllAsync(DisplayMonitor.GetDeviceSelector());
+            
+            foreach (var deviceInfo in displayMonitors)
+            {
+                var displayMonitor = await DisplayMonitor.FromInterfaceIdAsync(deviceInfo.Id);
+                if (displayMonitor != null)
+                {
+                    string name = displayMonitor.DisplayName;
+                    if (string.IsNullOrEmpty(name))
+                        name = "Internal Display";
+                    
+                    uint width = (uint)displayMonitor.NativeResolutionInRawPixels.Width;
+                    uint height = (uint)displayMonitor.NativeResolutionInRawPixels.Height;
+                    
+                    result.Add((name, displayMonitor.DisplayAdapterTargetId, width, height));
+                }
+            }
+            
+            return result;
+        }
+
+        private static List<(string gdiName, uint targetId, int width, int height, int refreshRate, uint rotation, bool isPrimary, int posX, int posY)> GetActiveDisplayConfig()
+        {
+            var result = new List<(string, uint, int, int, int, uint, bool, int, int)>();
+            
+            try
+            {
+                uint numPaths = 0, numModes = 0;
+                if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out numPaths, out numModes) != 0)
+                    return result;
+
+                var paths = new DISPLAYCONFIG_PATH_INFO[numPaths];
+                var modes = new DISPLAYCONFIG_MODE_INFO[numModes];
+
+                uint pathCount = numPaths, modeCount = numModes;
+                if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) != 0)
+                    return result;
+
+                for (int i = 0; i < pathCount; i++)
+                {
+                    var path = paths[i];
+                    
+                    // Get GDI device name
+                    var sourceName = new DISPLAYCONFIG_SOURCE_DEVICE_NAME();
+                    sourceName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+                    sourceName.header.size = (uint)Marshal.SizeOf<DISPLAYCONFIG_SOURCE_DEVICE_NAME>();
+                    sourceName.header.adapterId = path.sourceInfo.adapterId;
+                    sourceName.header.id = path.sourceInfo.id;
+                    
+                    if (DisplayConfigGetDeviceInfo(ref sourceName) != 0) continue;
+                    
+                    string gdiName = sourceName.viewGdiDeviceName;
+                    
+                    // Get source mode info (resolution and position)
+                    int width = 0, height = 0, posX = 0, posY = 0;
+                    bool isPrimary = false;
+                    
+                    if (path.sourceInfo.modeInfoIdx < modeCount)
+                    {
+                        var sourceMode = modes[path.sourceInfo.modeInfoIdx];
+                        if (sourceMode.infoType == 1) // Source mode
+                        {
+                            width = (int)sourceMode.info.sourceMode.width;
+                            height = (int)sourceMode.info.sourceMode.height;
+                            posX = sourceMode.info.sourceMode.position.x;
+                            posY = sourceMode.info.sourceMode.position.y;
+                            isPrimary = (posX == 0 && posY == 0);
+                        }
+                    }
+                    
+                    // Get target mode info (refresh rate)
+                    int refreshRate = 0;
+                    if (path.targetInfo.modeInfoIdx < modeCount)
+                    {
+                        var targetMode = modes[path.targetInfo.modeInfoIdx];
+                        if (targetMode.infoType == 2) // Target mode
+                        {
+                            var vsync = targetMode.info.targetMode.targetVideoSignalInfo.vSyncFreq;
+                            if (vsync.Denominator > 0)
+                                refreshRate = (int)(vsync.Numerator / vsync.Denominator);
+                        }
+                    }
+                    
+                    // Get rotation from path
+                    uint rotation = path.targetInfo.rotation;
+                    
+                    result.Add((gdiName, path.targetInfo.id, width, height, refreshRate, rotation, isPrimary, posX, posY));
+                }
+            }
+            catch { }
+            
+            return result;
+        }
+
+        private static List<MonitorInfo> GetDisplaysFromCCD()
+        {
+            var monitors = new List<MonitorInfo>();
+            var activeDisplays = GetActiveDisplayConfig();
+            
+            int displayNumber = 1;
+            foreach (var display in activeDisplays.OrderBy(d => d.targetId))
+            {
+                // Get friendly name from target
+                string friendlyName = GetTargetFriendlyName(display.targetId);
+                
+                monitors.Add(new MonitorInfo
+                {
+                    DeviceName = string.IsNullOrEmpty(friendlyName) ? $"Display {displayNumber}" : friendlyName,
+                    AdapterName = "Graphics Adapter",
+                    DeviceKey = display.gdiName,
+                    DisplayNumber = displayNumber.ToString(),
+                    Width = display.width,
+                    Height = display.height,
+                    RefreshRate = display.refreshRate,
+                    Orientation = GetOrientationString(display.rotation),
+                    IsPrimary = display.isPrimary,
+                    IsEnabled = true,
+                    PositionX = display.posX,
+                    PositionY = display.posY
+                });
+                
+                displayNumber++;
+            }
+            
+            return monitors;
+        }
+
+        private static string GetTargetFriendlyName(uint targetId)
+        {
+            try
+            {
+                uint numPaths = 0, numModes = 0;
+                if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out numPaths, out numModes) != 0)
+                    return "";
+
+                var paths = new DISPLAYCONFIG_PATH_INFO[numPaths];
+                var modes = new DISPLAYCONFIG_MODE_INFO[numModes];
+
+                uint pathCount = numPaths, modeCount = numModes;
+                if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) != 0)
+                    return "";
+
+                for (int i = 0; i < pathCount; i++)
+                {
+                    if (paths[i].targetInfo.id == targetId)
+                    {
+                        var targetName = new DISPLAYCONFIG_TARGET_DEVICE_NAME();
+                        targetName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
+                        targetName.header.size = (uint)Marshal.SizeOf<DISPLAYCONFIG_TARGET_DEVICE_NAME>();
+                        targetName.header.adapterId = paths[i].targetInfo.adapterId;
+                        targetName.header.id = targetId;
+                        
+                        if (DisplayConfigGetDeviceInfo(ref targetName) == 0)
+                            return targetName.monitorFriendlyDeviceName ?? "";
+                    }
+                }
+            }
+            catch { }
+            
+            return "";
+        }
+
+        private static string GetOrientationString(uint rotation)
+        {
+            return rotation switch
+            {
+                1 => "Landscape",        // DISPLAYCONFIG_ROTATION_IDENTITY
+                2 => "Portrait",         // DISPLAYCONFIG_ROTATION_ROTATE90
+                3 => "Landscape (flipped)", // DISPLAYCONFIG_ROTATION_ROTATE180
+                4 => "Portrait (flipped)",  // DISPLAYCONFIG_ROTATION_ROTATE270
+                _ => "Landscape"
+            };
+        }
+
+        #endregion
     }
 }

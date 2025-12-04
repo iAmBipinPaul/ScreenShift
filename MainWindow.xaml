@@ -123,10 +123,22 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                <Grid>
-                                    <TextBlock Text="{Binding DisplayNumber}" 
+                                <Grid Margin="4">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{Binding DisplayNumber}" 
                                                HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                               FontSize="32" FontWeight="Bold" Foreground="White"/>
+                                               FontSize="28" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Grid.Row="1" Text="{Binding DeviceName}" 
+                                               HorizontalAlignment="Center" TextAlignment="Center"
+                                               FontSize="9" Foreground="White" Opacity="0.8"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="120"/>
+                                    <TextBlock Grid.Row="2" Text="{Binding Orientation}" 
+                                               HorizontalAlignment="Center" TextAlignment="Center"
+                                               FontSize="8" Foreground="White" Opacity="0.6"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>

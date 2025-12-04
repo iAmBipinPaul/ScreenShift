@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Threading.Tasks;
 
 namespace MonitorSwitcher
 {
@@ -15,13 +16,20 @@ namespace MonitorSwitcher
         public MainWindow()
         {
             InitializeComponent();
-            LoadMonitors();
+            Loaded += MainWindow_Loaded;
         }
 
-        private void LoadMonitors()
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            await LoadMonitorsAsync();
+        }
+
+        private async Task LoadMonitorsAsync()
+        {
+            StatusText.Text = "Loading monitors...";
+            
             Monitors.Clear();
-            var displays = DisplayHelper.GetAllDisplays();
+            var displays = await Task.Run(() => DisplayHelper.GetAllDisplays());
             foreach (var display in displays)
             {
                 Monitors.Add(display);
@@ -31,6 +39,11 @@ namespace MonitorSwitcher
             CalculateLayout();
         }
 
+        private void LoadMonitors()
+        {
+            _ = LoadMonitorsAsync();
+        }
+
         private void CalculateLayout()
         {
             if (Monitors.Count == 0) return;
@@ -38,11 +51,15 @@ namespace MonitorSwitcher
             var activeMonitors = Monitors.Where(m => m.IsEnabled).ToList();
             if (activeMonitors.Count == 0) return;
 
+            // Get visual dimensions (accounting for rotation)
+            int GetVisualWidth(MonitorInfo m) => m.Orientation.Contains("Portrait") ? m.Height : m.Width;
+            int GetVisualHeight(MonitorInfo m) => m.Orientation.Contains("Portrait") ? m.Width : m.Height;
+
             // Find bounds of the virtual desktop
             int minX = activeMonitors.Min(m => m.PositionX);
             int minY = activeMonitors.Min(m => m.PositionY);
-            int maxX = activeMonitors.Max(m => m.PositionX + m.Width);
-            int maxY = activeMonitors.Max(m => m.PositionY + m.Height);
+            int maxX = activeMonitors.Max(m => m.PositionX + GetVisualWidth(m));
+            int maxY = activeMonitors.Max(m => m.PositionY + GetVisualHeight(m));
 
             double totalWidth = maxX - minX;
             double totalHeight = maxY - minY;
@@ -68,13 +85,21 @@ namespace MonitorSwitcher
                 {
                     monitor.VisualX = ((monitor.PositionX - minX) * scale) + offsetX;
                     monitor.VisualY = ((monitor.PositionY - minY) * scale) + offsetY;
-                    monitor.VisualWidth = monitor.Width * scale;
-                    monitor.VisualHeight = monitor.Height * scale;
+                    
+                    // Swap width/height for portrait orientation
+                    if (monitor.Orientation.Contains("Portrait"))
+                    {
+                        monitor.VisualWidth = monitor.Height * scale;
+                        monitor.VisualHeight = monitor.Width * scale;
+                    }
+                    else
+                    {
+                        monitor.VisualWidth = monitor.Width * scale;
+                        monitor.VisualHeight = monitor.Height * scale;
+                    }
                 }
                 else
                 {
-                    // Hide or position disabled monitors somewhere else?
-                    // For now, just zero them out or hide them
                     monitor.VisualWidth = 0;
                     monitor.VisualHeight = 0;
                 }
