@@ -2,31 +2,122 @@ using System;
 using System.Linq;
 using System.ComponentModel;
 using System.Collections.ObjectModel;
-using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Input;
 using System.Threading.Tasks;
+using System.Drawing;
+using System.Windows.Forms;
+using System.IO;
 
 namespace MonitorSwitcher
 {
     public partial class MainWindow : Window
     {
         public ObservableCollection<MonitorInfo> Monitors { get; set; } = new();
+        private NotifyIcon? _trayIcon;
 
         public MainWindow()
         {
             InitializeComponent();
+            SetupTrayIcon();
             Loaded += MainWindow_Loaded;
+            
+            // Hide window initially
+            this.Hide();
+        }
+
+        private void SetupTrayIcon()
+        {
+            _trayIcon = new NotifyIcon
+            {
+                Icon = CreateTrayIcon(),
+                Visible = true,
+                Text = "Monitor Switcher"
+            };
+            
+            _trayIcon.Click += TrayIcon_Click;
+            _trayIcon.DoubleClick += TrayIcon_Click;
+        }
+
+        private System.Drawing.Icon CreateTrayIcon()
+        {
+            // Create a simple monitor icon
+            using var bitmap = new Bitmap(32, 32);
+            using var g = Graphics.FromImage(bitmap);
+            
+            // Draw monitor shape
+            g.Clear(System.Drawing.Color.Transparent);
+            using var brush = new SolidBrush(System.Drawing.Color.FromArgb(0, 120, 212));
+            using var pen = new System.Drawing.Pen(System.Drawing.Color.White, 2);
+            
+            // Monitor body
+            g.FillRectangle(brush, 4, 4, 24, 18);
+            g.DrawRectangle(pen, 4, 4, 24, 18);
+            
+            // Stand
+            g.FillRectangle(brush, 12, 22, 8, 3);
+            g.FillRectangle(brush, 8, 25, 16, 3);
+            
+            // Convert to icon
+            IntPtr hicon = bitmap.GetHicon();
+            return System.Drawing.Icon.FromHandle(hicon);
+        }
+
+        private void TrayIcon_Click(object? sender, EventArgs e)
+        {
+            if (this.IsVisible)
+            {
+                this.Hide();
+            }
+            else
+            {
+                ShowPopup();
+            }
+        }
+
+        private void ShowPopup()
+        {
+            // Position near the taskbar
+            var workArea = SystemParameters.WorkArea;
+            var cursorPos = System.Windows.Forms.Cursor.Position;
+            
+            // Determine taskbar position and place window accordingly
+            this.Left = Math.Min(cursorPos.X - (this.Width / 2), workArea.Right - this.Width - 10);
+            this.Left = Math.Max(this.Left, workArea.Left + 10);
+            
+            // Check if taskbar is at bottom or top
+            if (cursorPos.Y > workArea.Height / 2)
+            {
+                // Taskbar at bottom
+                this.Top = workArea.Bottom - this.ActualHeight - 10;
+            }
+            else
+            {
+                // Taskbar at top
+                this.Top = workArea.Top + 10;
+            }
+            
+            this.Show();
+            this.Activate();
+            _ = LoadMonitorsAsync();
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // Position the window
+            var workArea = SystemParameters.WorkArea;
+            this.Left = workArea.Right - this.Width - 20;
+            this.Top = workArea.Bottom - this.ActualHeight - 20;
+            
             await LoadMonitorsAsync();
         }
 
         private async Task LoadMonitorsAsync()
         {
-            StatusText.Text = "Loading monitors...";
+            StatusText.Text = "Loading...";
             
             Monitors.Clear();
             var displays = await Task.Run(() => DisplayHelper.GetAllDisplays());
@@ -35,19 +126,15 @@ namespace MonitorSwitcher
                 Monitors.Add(display);
             }
             MonitorList.ItemsSource = Monitors;
-            StatusText.Text = $"{Monitors.Count} monitor(s) detected";
-            CalculateLayout();
+            StatusText.Text = $"{Monitors.Count(m => m.IsEnabled)} active";
+            
+            UpdateVisualLayout();
         }
 
-        private void LoadMonitors()
+        private void UpdateVisualLayout()
         {
-            _ = LoadMonitorsAsync();
-        }
-
-        private void CalculateLayout()
-        {
-            if (Monitors.Count == 0) return;
-
+            MonitorCanvas.Children.Clear();
+            
             var activeMonitors = Monitors.Where(m => m.IsEnabled).ToList();
             if (activeMonitors.Count == 0) return;
 
@@ -55,7 +142,7 @@ namespace MonitorSwitcher
             int GetVisualWidth(MonitorInfo m) => m.Orientation.Contains("Portrait") ? m.Height : m.Width;
             int GetVisualHeight(MonitorInfo m) => m.Orientation.Contains("Portrait") ? m.Width : m.Height;
 
-            // Find bounds of the virtual desktop
+            // Find bounds
             int minX = activeMonitors.Min(m => m.PositionX);
             int minY = activeMonitors.Min(m => m.PositionY);
             int maxX = activeMonitors.Max(m => m.PositionX + GetVisualWidth(m));
@@ -64,111 +151,184 @@ namespace MonitorSwitcher
             double totalWidth = maxX - minX;
             double totalHeight = maxY - minY;
 
-            // Available drawing area (leave some padding)
-            double canvasWidth = 600;
-            double canvasHeight = 200;
+            double canvasWidth = MonitorCanvas.Width;
+            double canvasHeight = MonitorCanvas.Height;
 
-            // Calculate scale to fit
             double scaleX = canvasWidth / totalWidth;
             double scaleY = canvasHeight / totalHeight;
-            double scale = Math.Min(scaleX, scaleY);
+            double scale = Math.Min(scaleX, scaleY) * 0.9; // 90% to leave padding
 
-            // Center the visualization
             double visualTotalWidth = totalWidth * scale;
             double visualTotalHeight = totalHeight * scale;
             double offsetX = (canvasWidth - visualTotalWidth) / 2;
             double offsetY = (canvasHeight - visualTotalHeight) / 2;
 
-            foreach (var monitor in Monitors)
+            foreach (var monitor in activeMonitors)
             {
-                if (monitor.IsEnabled)
+                double x = ((monitor.PositionX - minX) * scale) + offsetX;
+                double y = ((monitor.PositionY - minY) * scale) + offsetY;
+                double width = GetVisualWidth(monitor) * scale;
+                double height = GetVisualHeight(monitor) * scale;
+
+                // Create monitor rectangle
+                var border = new Border
                 {
-                    monitor.VisualX = ((monitor.PositionX - minX) * scale) + offsetX;
-                    monitor.VisualY = ((monitor.PositionY - minY) * scale) + offsetY;
-                    
-                    // Swap width/height for portrait orientation
-                    if (monitor.Orientation.Contains("Portrait"))
-                    {
-                        monitor.VisualWidth = monitor.Height * scale;
-                        monitor.VisualHeight = monitor.Width * scale;
-                    }
-                    else
-                    {
-                        monitor.VisualWidth = monitor.Width * scale;
-                        monitor.VisualHeight = monitor.Height * scale;
-                    }
-                }
-                else
+                    Width = width,
+                    Height = height,
+                    Background = monitor.IsPrimary 
+                        ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 120, 212))
+                        : new SolidColorBrush(System.Windows.Media.Color.FromRgb(64, 64, 64)),
+                    BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 100, 100)),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(4),
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    Tag = monitor
+                };
+
+                // Add content
+                var stack = new StackPanel
                 {
-                    monitor.VisualWidth = 0;
-                    monitor.VisualHeight = 0;
+                    HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                stack.Children.Add(new TextBlock
+                {
+                    Text = monitor.DisplayNumber,
+                    FontSize = 16,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = System.Windows.Media.Brushes.White,
+                    HorizontalAlignment = System.Windows.HorizontalAlignment.Center
+                });
+
+                if (width > 60 && height > 40)
+                {
+                    stack.Children.Add(new TextBlock
+                    {
+                        Text = monitor.DeviceName,
+                        FontSize = 8,
+                        Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(200, 200, 200)),
+                        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                        TextTrimming = TextTrimming.CharacterEllipsis,
+                        MaxWidth = width - 8
+                    });
                 }
+
+                border.Child = stack;
+                border.MouseLeftButtonDown += VisualMonitor_Click;
+
+                Canvas.SetLeft(border, x);
+                Canvas.SetTop(border, y);
+                MonitorCanvas.Children.Add(border);
             }
+        }
+
+        private void VisualMonitor_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border border && border.Tag is MonitorInfo monitor)
+            {
+                SetPrimaryMonitor(monitor);
+            }
+        }
+
+        private void MonitorButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button button && button.Tag is MonitorInfo monitor)
+            {
+                SetPrimaryMonitor(monitor);
+            }
+        }
+
+        private async void SetPrimaryMonitor(MonitorInfo monitor)
+        {
+            if (!monitor.IsEnabled)
+            {
+                StatusText.Text = "Monitor disabled";
+                return;
+            }
+
+            if (monitor.IsPrimary)
+            {
+                StatusText.Text = "Already primary";
+                return;
+            }
+
+            StatusText.Text = "Switching...";
             
-            // Force UI update
-            MonitorList.ItemsSource = null;
-            MonitorList.ItemsSource = Monitors;
-        }
-
-        private void MonitorCard_Click(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is FrameworkElement element && element.DataContext is MonitorInfo monitor)
+            bool success = await Task.Run(() => DisplayHelper.SetPrimaryDisplay(monitor.DeviceKey));
+            
+            if (success)
             {
-                if (!monitor.IsEnabled)
-                {
-                    StatusText.Text = "Monitor is disabled";
-                    return;
-                }
-
-                if (monitor.IsPrimary)
-                {
-                    StatusText.Text = "Already the primary monitor";
-                    return;
-                }
-
-                StatusText.Text = $"Setting {monitor.DeviceName} as primary...";
-                bool success = DisplayHelper.SetPrimaryDisplay(monitor.DeviceKey);
-                
-                if (success)
-                {
-                    StatusText.Text = $"{monitor.DeviceName} is now primary";
-                    LoadMonitors();
-                }
-                else
-                {
-                    StatusText.Text = "Failed to change primary monitor";
-                }
-            }
-        }
-
-        private void Refresh_Click(object sender, RoutedEventArgs e)
-        {
-            LoadMonitors();
-        }
-
-
-
-        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ClickCount == 2)
-            {
-                WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+                StatusText.Text = "Done!";
+                await Task.Delay(500);
+                await LoadMonitorsAsync();
             }
             else
             {
-                DragMove();
+                StatusText.Text = "Failed";
             }
         }
 
-        private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-        private void Close_Click(object sender, RoutedEventArgs e) => Close();
+        private void RefreshButton_Click(object sender, RoutedEventArgs e)
+        {
+            _ = LoadMonitorsAsync();
+        }
+
+        private void ExitButton_Click(object sender, RoutedEventArgs e)
+        {
+            _trayIcon?.Dispose();
+            System.Windows.Application.Current.Shutdown();
+        }
+
+        private void Window_Deactivated(object sender, EventArgs e)
+        {
+            // Hide when clicking outside
+            this.Hide();
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            // Minimize to tray instead of closing
+            e.Cancel = true;
+            this.Hide();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _trayIcon?.Dispose();
+            base.OnClosed(e);
+        }
+    }
+
+    // Value Converters
+    public class BoolToVisibilityConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return (bool)value ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return (Visibility)value == Visibility.Visible;
+        }
+    }
+
+    public class InverseBoolToVisibilityConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return (bool)value ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return (Visibility)value != Visibility.Visible;
+        }
     }
 
     public class MonitorInfo : INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler? PropertyChanged;
-        private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-
         public string DeviceName { get; set; } = "";
         public string AdapterName { get; set; } = "";
         public string DeviceKey { get; set; } = "";
@@ -179,38 +339,9 @@ namespace MonitorSwitcher
         public string Orientation { get; set; } = "";
         public bool IsPrimary { get; set; }
         public bool IsEnabled { get; set; } = true;
-        
-        // Position data
         public int PositionX { get; set; }
         public int PositionY { get; set; }
-        
-        // Visual properties for UI
-        private double _visualX;
-        public double VisualX 
-        { 
-            get => _visualX; 
-            set { _visualX = value; OnPropertyChanged(nameof(VisualX)); } 
-        }
 
-        private double _visualY;
-        public double VisualY 
-        { 
-            get => _visualY; 
-            set { _visualY = value; OnPropertyChanged(nameof(VisualY)); } 
-        }
-
-        private double _visualWidth;
-        public double VisualWidth 
-        { 
-            get => _visualWidth; 
-            set { _visualWidth = value; OnPropertyChanged(nameof(VisualWidth)); } 
-        }
-
-        private double _visualHeight;
-        public double VisualHeight 
-        { 
-            get => _visualHeight; 
-            set { _visualHeight = value; OnPropertyChanged(nameof(VisualHeight)); } 
-        }
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 }
