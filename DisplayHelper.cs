@@ -282,7 +282,9 @@ namespace MonitorSwitcher
                         RefreshRate = (int)devMode.dmDisplayFrequency,
                         Orientation = orientation,
                         IsPrimary = isPrimary,
-                        IsEnabled = true
+                        IsEnabled = true,
+                        PositionX = devMode.dmPositionX,
+                        PositionY = devMode.dmPositionY
                     });
                 }
             }

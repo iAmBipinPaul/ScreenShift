@@ -1,7 +1,7 @@
 <Window x:Class="MonitorSwitcher.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Monitor Switcher" Height="450" Width="700"
+        Title="Monitor Switcher" Height="650" Width="700"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen">
@@ -66,6 +66,7 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="40"/>
+                <RowDefinition Height="240"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="60"/>
             </Grid.RowDefinitions>
@@ -80,8 +81,61 @@
                 </StackPanel>
             </Grid>
 
+            <!-- Visual Layout -->
+            <Border Grid.Row="1" Margin="16,8" Background="#151515" CornerRadius="8" ClipToBounds="True">
+                <ItemsControl ItemsSource="{Binding Monitors, RelativeSource={RelativeSource AncestorType=Window}}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <Canvas Width="600" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemContainerStyle>
+                        <Style TargetType="ContentPresenter">
+                            <Setter Property="Canvas.Left" Value="{Binding VisualX}"/>
+                            <Setter Property="Canvas.Top" Value="{Binding VisualY}"/>
+                            <Setter Property="Width" Value="{Binding VisualWidth}"/>
+                            <Setter Property="Height" Value="{Binding VisualHeight}"/>
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding VisualWidth}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.ItemContainerStyle>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="4" MouseLeftButtonDown="MonitorCard_Click" Cursor="Hand" ToolTip="{Binding DeviceName}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+                                        <Setter Property="BorderBrush" Value="#404040"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPrimary}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                                                <Setter Property="BorderBrush" Value="White"/>
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <TextBlock Text="{Binding DisplayNumber}" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                               FontSize="32" FontWeight="Bold" Foreground="White"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+
             <!-- Monitor List -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="16,8,16,8">
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="16,0,16,8">
                 <ItemsControl x:Name="MonitorList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -176,9 +230,9 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
-
+            
             <!-- Footer -->
-            <Grid Grid.Row="2" Margin="16,0,16,16">
+            <Grid Grid.Row="3" Margin="16,0,16,16">
                 <Button Content="⟳ Refresh" HorizontalAlignment="Left" Click="Refresh_Click" Style="{StaticResource SecondaryButtonStyle}"/>
                 <TextBlock x:Name="StatusText" Text="" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{StaticResource SecondaryTextBrush}" FontSize="12"/>
