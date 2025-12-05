@@ -8,10 +8,37 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>MonitorSwitcher</AssemblyName>
     <RootNamespace>MonitorSwitcher</RootNamespace>
+    
+    <!-- App Info -->
+    <Product>Monitor Switcher</Product>
+    <Company>Aditi Kraft</Company>
+    <Authors>Aditi Kraft</Authors>
+    <Description>Quickly switch your primary monitor from the system tray</Description>
+    <Copyright>© 2025 Aditi Kraft. All rights reserved.</Copyright>
+    <Version>0.0.1</Version>
+    <FileVersion>0.0.1.0</FileVersion>
+    <AssemblyVersion>0.0.1.0</AssemblyVersion>
+    
+    <!-- App Icon -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    
+    <!-- MSIX Packaging -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishProfile>Properties\PublishProfiles\win-x64.pubxml</PublishProfile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- Assets -->
+  <ItemGroup>
+    <None Update="Assets\app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Content Include="Assets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
