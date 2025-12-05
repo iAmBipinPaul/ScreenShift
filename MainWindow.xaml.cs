@@ -405,30 +405,11 @@ namespace MonitorSwitcher
             }
             // else isDark remains true (Dark mode)
 
-            var resources = System.Windows.Application.Current.Resources;
-
-            if (!isDark) // Light
-            {
-                resources["AppBackgroundBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(243, 243, 243));
-                resources["SurfaceBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 255, 255));
-                resources["SurfaceHoverBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 230, 230));
-                resources["SurfacePressedBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(210, 210, 210));
-                resources["BorderBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(200, 200, 200));
-                resources["TextPrimaryBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 0, 0));
-                resources["TextSecondaryBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 100, 100));
-                resources["MonitorIconBackgroundBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(220, 220, 220));
-            }
-            else // Dark
-            {
-                resources["AppBackgroundBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(31, 31, 31));
-                resources["SurfaceBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(45, 45, 45));
-                resources["SurfaceHoverBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(61, 61, 61));
-                resources["SurfacePressedBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(77, 77, 77));
-                resources["BorderBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(61, 61, 61));
-                resources["TextPrimaryBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 255, 255));
-                resources["TextSecondaryBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(136, 136, 136));
-                resources["MonitorIconBackgroundBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(64, 64, 64));
-            }
+            var dictionaries = System.Windows.Application.Current.Resources.MergedDictionaries;
+            dictionaries.Clear();
+            
+            string themeFile = isDark ? "Themes/DarkTheme.xaml" : "Themes/LightTheme.xaml";
+            dictionaries.Add(new ResourceDictionary { Source = new Uri(themeFile, UriKind.Relative) });
             
             // Re-render visual layout to apply new colors
             UpdateVisualLayout();
