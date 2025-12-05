@@ -19,14 +19,28 @@ namespace MonitorSwitcher
         public ObservableCollection<MonitorInfo> Monitors { get; set; } = new();
         private NotifyIcon? _trayIcon;
 
+        private string _currentTheme = "System";
+
         public MainWindow()
         {
             InitializeComponent();
             SetupTrayIcon();
             Loaded += MainWindow_Loaded;
             
+            // Listen for system theme changes
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
+            
             // Hide window initially
             this.Hide();
+        }
+
+        private void SystemEvents_UserPreferenceChanged(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+        {
+            if (e.Category == Microsoft.Win32.UserPreferenceCategory.General && _currentTheme == "System")
+            {
+                // Re-apply system theme on UI thread
+                Dispatcher.Invoke(() => ApplyTheme("System"));
+            }
         }
 
         private void SetupTrayIcon()
@@ -95,13 +109,13 @@ namespace MonitorSwitcher
             this.Activate();
 
             // 2. Position near the taskbar (using current/default size)
-            RepositionWindow();
+            CenterWindowOnCursor();
 
             // 3. Load data (refresh in background)
             await LoadMonitorsAsync();
         }
 
-        private void RepositionWindow()
+        private void CenterWindowOnCursor()
         {
             var workArea = SystemParameters.WorkArea;
             var cursorPos = System.Windows.Forms.Cursor.Position;
@@ -110,6 +124,14 @@ namespace MonitorSwitcher
             this.Left = Math.Min(cursorPos.X - (this.Width / 2), workArea.Right - this.Width - 10);
             this.Left = Math.Max(this.Left, workArea.Left + 10);
             
+            UpdateVerticalPosition();
+        }
+
+        private void UpdateVerticalPosition()
+        {
+            var workArea = SystemParameters.WorkArea;
+            var cursorPos = System.Windows.Forms.Cursor.Position;
+
             // Vertical: Anchor to bottom (or top)
             if (cursorPos.Y > workArea.Height / 2)
             {
@@ -157,7 +179,7 @@ namespace MonitorSwitcher
             
             // Force layout update and reposition since size likely changed
             this.UpdateLayout();
-            RepositionWindow();
+            UpdateVerticalPosition();
         }
 
         private void UpdateVisualLayout()
@@ -204,15 +226,24 @@ namespace MonitorSwitcher
                 {
                     Width = width,
                     Height = height,
-                    Background = monitor.IsPrimary 
-                        ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 120, 212))
-                        : new SolidColorBrush(System.Windows.Media.Color.FromRgb(64, 64, 64)),
-                    BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 100, 100)),
                     BorderThickness = new Thickness(1),
                     CornerRadius = new CornerRadius(4),
                     Cursor = System.Windows.Input.Cursors.Hand,
                     Tag = monitor
                 };
+                
+                // Set dynamic colors
+                if (monitor.IsPrimary)
+                {
+                    border.SetResourceReference(Border.BackgroundProperty, "AccentBrush");
+                }
+                else
+                {
+                    border.SetResourceReference(Border.BackgroundProperty, "MonitorIconBackgroundBrush");
+                }
+                
+                // Border brush is always the same or maybe accent? Let's use a subtle border
+                border.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 128, 128, 128));
 
                 // Add content
                 var stack = new StackPanel
@@ -221,26 +252,44 @@ namespace MonitorSwitcher
                     VerticalAlignment = VerticalAlignment.Center
                 };
 
-                stack.Children.Add(new TextBlock
+                var numberText = new TextBlock
                 {
                     Text = monitor.DisplayNumber,
                     FontSize = 16,
                     FontWeight = FontWeights.Bold,
-                    Foreground = System.Windows.Media.Brushes.White,
                     HorizontalAlignment = System.Windows.HorizontalAlignment.Center
-                });
+                };
+                numberText.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimaryBrush");
+                
+                // If primary, text should be white regardless of theme because background is blue
+                if (monitor.IsPrimary)
+                {
+                    numberText.Foreground = System.Windows.Media.Brushes.White;
+                }
+
+                stack.Children.Add(numberText);
 
                 if (width > 60 && height > 40)
                 {
-                    stack.Children.Add(new TextBlock
+                    var nameText = new TextBlock
                     {
                         Text = monitor.DeviceName,
                         FontSize = 8,
-                        Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(200, 200, 200)),
                         HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
                         TextTrimming = TextTrimming.CharacterEllipsis,
                         MaxWidth = width - 8
-                    });
+                    };
+                    
+                    if (monitor.IsPrimary)
+                    {
+                        nameText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 255, 255, 255));
+                    }
+                    else
+                    {
+                        nameText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+                    }
+                    
+                    stack.Children.Add(nameText);
                 }
 
                 border.Child = stack;
@@ -296,6 +345,74 @@ namespace MonitorSwitcher
             {
                 StatusText.Text = "Failed";
             }
+        }
+
+        private void ThemeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn && btn.ContextMenu != null)
+            {
+                btn.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private void ThemeMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.Tag is string theme)
+            {
+                ApplyTheme(theme);
+            }
+        }
+
+        private void ApplyTheme(string theme)
+        {
+            _currentTheme = theme;
+            var resources = System.Windows.Application.Current.Resources;
+
+            if (theme == "System")
+            {
+                // Detect system theme
+                bool isDark = true;
+                try
+                {
+                    using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+                    if (key != null)
+                    {
+                        object? val = key.GetValue("AppsUseLightTheme");
+                        if (val is int i && i == 1)
+                            isDark = false;
+                    }
+                }
+                catch { }
+                
+                ApplyTheme(isDark ? "Dark" : "Light");
+                return;
+            }
+
+            if (theme == "Light")
+            {
+                resources["AppBackgroundBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(243, 243, 243));
+                resources["SurfaceBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 255, 255));
+                resources["SurfaceHoverBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 230, 230));
+                resources["SurfacePressedBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(210, 210, 210));
+                resources["BorderBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(200, 200, 200));
+                resources["TextPrimaryBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 0, 0));
+                resources["TextSecondaryBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 100, 100));
+                resources["MonitorIconBackgroundBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(220, 220, 220));
+            }
+            else // Dark
+            {
+                resources["AppBackgroundBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(31, 31, 31));
+                resources["SurfaceBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(45, 45, 45));
+                resources["SurfaceHoverBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(61, 61, 61));
+                resources["SurfacePressedBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(77, 77, 77));
+                resources["BorderBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(61, 61, 61));
+                resources["TextPrimaryBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 255, 255));
+                resources["TextSecondaryBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(136, 136, 136));
+                resources["MonitorIconBackgroundBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(64, 64, 64));
+            }
+            
+            // Re-render visual layout to apply new colors
+            UpdateVisualLayout();
         }
 
         private void RefreshButton_Click(object sender, RoutedEventArgs e)

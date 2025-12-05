@@ -4,6 +4,15 @@
              StartupUri="MainWindow.xaml"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-        
+        <!-- Default Theme (Dark) -->
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#1F1F1F"/>
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#2D2D2D"/>
+        <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#3D3D3D"/>
+        <SolidColorBrush x:Key="SurfacePressedBrush" Color="#4D4D4D"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#3D3D3D"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#888888"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#0078D4"/>
+        <SolidColorBrush x:Key="MonitorIconBackgroundBrush" Color="#404040"/>
     </Application.Resources>
 </Application>
