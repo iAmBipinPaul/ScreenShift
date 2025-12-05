@@ -1,12 +1,23 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#1F1F1F"/>
-    <SolidColorBrush x:Key="SurfaceBrush" Color="#2D2D2D"/>
-    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#3D3D3D"/>
-    <SolidColorBrush x:Key="SurfacePressedBrush" Color="#4D4D4D"/>
-    <SolidColorBrush x:Key="BorderBrush" Color="#3D3D3D"/>
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#888888"/>
-    <SolidColorBrush x:Key="AccentBrush" Color="#0078D4"/>
-    <SolidColorBrush x:Key="MonitorIconBackgroundBrush" Color="#404040"/>
+    <!-- AditiKraft Brand Colors - Dark Theme -->
+    
+    <!-- Backgrounds -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0a0e12"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#1e2433"/>
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#252b3b"/>
+    <SolidColorBrush x:Key="SurfacePressedBrush" Color="#2a3344"/>
+    
+    <!-- Border -->
+    <SolidColorBrush x:Key="BorderBrush" Color="#2a3344"/>
+    
+    <!-- Text -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#f5f7fa"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#b8c1cc"/>
+    
+    <!-- Accent - AditiKraft Primary Green -->
+    <SolidColorBrush x:Key="AccentBrush" Color="#0CAC5C"/>
+    
+    <!-- Monitor Icons -->
+    <SolidColorBrush x:Key="MonitorIconBackgroundBrush" Color="#141922"/>
 </ResourceDictionary>
