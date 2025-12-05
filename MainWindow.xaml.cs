@@ -78,57 +78,86 @@ namespace MonitorSwitcher
             }
         }
 
-        private void ShowPopup()
+        private async void ShowPopup()
         {
-            // Position near the taskbar
-            var workArea = SystemParameters.WorkArea;
-            var cursorPos = System.Windows.Forms.Cursor.Position;
-            
-            // Determine taskbar position and place window accordingly
-            this.Left = Math.Min(cursorPos.X - (this.Width / 2), workArea.Right - this.Width - 10);
-            this.Left = Math.Max(this.Left, workArea.Left + 10);
-            
-            // Check if taskbar is at bottom or top
-            if (cursorPos.Y > workArea.Height / 2)
+            // 1. Show window immediately
+            // Only show loading overlay if we don't have data yet (first run)
+            if (Monitors.Count == 0)
             {
-                // Taskbar at bottom
-                this.Top = workArea.Bottom - this.ActualHeight - 10;
+                LoadingOverlay.Visibility = Visibility.Visible;
             }
             else
             {
-                // Taskbar at top
-                this.Top = workArea.Top + 10;
+                LoadingOverlay.Visibility = Visibility.Collapsed;
             }
             
             this.Show();
             this.Activate();
-            _ = LoadMonitorsAsync();
+
+            // 2. Position near the taskbar (using current/default size)
+            RepositionWindow();
+
+            // 3. Load data (refresh in background)
+            await LoadMonitorsAsync();
         }
 
-        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        private void RepositionWindow()
         {
-            // Position the window
             var workArea = SystemParameters.WorkArea;
-            this.Left = workArea.Right - this.Width - 20;
-            this.Top = workArea.Bottom - this.ActualHeight - 20;
+            var cursorPos = System.Windows.Forms.Cursor.Position;
             
-            await LoadMonitorsAsync();
+            // Horizontal: Center on cursor, but keep within screen bounds
+            this.Left = Math.Min(cursorPos.X - (this.Width / 2), workArea.Right - this.Width - 10);
+            this.Left = Math.Max(this.Left, workArea.Left + 10);
+            
+            // Vertical: Anchor to bottom (or top)
+            if (cursorPos.Y > workArea.Height / 2)
+            {
+                // Taskbar at bottom -> Window sits above taskbar
+                this.Top = workArea.Bottom - this.ActualHeight - 10;
+            }
+            else
+            {
+                // Taskbar at top -> Window sits below taskbar
+                this.Top = workArea.Top + 10;
+            }
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // No-op
         }
 
         private async Task LoadMonitorsAsync()
         {
-            StatusText.Text = "Loading...";
+            if (Monitors.Count == 0)
+                StatusText.Text = "Loading...";
+            else
+                StatusText.Text = "Refreshing...";
             
-            Monitors.Clear();
+            // Run heavy lifting in background
             var displays = await Task.Run(() => DisplayHelper.GetAllDisplays());
+            
+            // Update UI - Create new collection to avoid flickering
+            var newMonitors = new ObservableCollection<MonitorInfo>();
             foreach (var display in displays)
             {
-                Monitors.Add(display);
+                newMonitors.Add(display);
             }
+            
+            Monitors = newMonitors;
             MonitorList.ItemsSource = Monitors;
+            
             StatusText.Text = $"{Monitors.Count(m => m.IsEnabled)} active";
             
             UpdateVisualLayout();
+            
+            // Hide loading overlay
+            LoadingOverlay.Visibility = Visibility.Collapsed;
+            
+            // Force layout update and reposition since size likely changed
+            this.UpdateLayout();
+            RepositionWindow();
         }
 
         private void UpdateVisualLayout()

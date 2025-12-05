@@ -61,138 +61,148 @@
             <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.4" Color="Black"/>
         </Border.Effect>
         
-        <StackPanel>
-            <!-- Header -->
-            <Border Background="#2D2D2D" CornerRadius="12,12,0,0" Padding="16,12">
-                <Grid>
-                    <TextBlock Text="Monitor Switcher" 
-                               FontSize="14" 
-                               FontWeight="SemiBold" 
-                               Foreground="White"/>
-                    <TextBlock x:Name="StatusText" 
-                               Text="Click a monitor to set as primary" 
-                               FontSize="11" 
-                               Foreground="#888"
-                               HorizontalAlignment="Right"/>
-                </Grid>
-            </Border>
+        <Grid>
+            <StackPanel>
+                <!-- Header -->
+                <Border Background="#2D2D2D" CornerRadius="12,12,0,0" Padding="16,12">
+                    <Grid>
+                        <TextBlock Text="Monitor Switcher" 
+                                   FontSize="14" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="White"/>
+                        <TextBlock x:Name="StatusText" 
+                                   Text="Click a monitor to set as primary" 
+                                   FontSize="11" 
+                                   Foreground="#888"
+                                   HorizontalAlignment="Right"/>
+                    </Grid>
+                </Border>
+                
+                <!-- Visual Monitor Layout -->
+                <Border Background="#1F1F1F" Padding="16">
+                    <Canvas x:Name="MonitorCanvas" Width="300" Height="120" ClipToBounds="True">
+                        <!-- Monitor items will be added programmatically -->
+                    </Canvas>
+                </Border>
+                
+                <!-- Monitor List -->
+                <ItemsControl x:Name="MonitorList" Margin="8,0,8,8">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource MonitorButtonStyle}"
+                                    Margin="0,4"
+                                    Click="MonitorButton_Click"
+                                    Tag="{Binding}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="border" 
+                                                Background="#2D2D2D" 
+                                                CornerRadius="8"
+                                                Padding="12,10"
+                                                Cursor="Hand">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="32"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <!-- Display Number -->
+                                                <Border Grid.Column="0" 
+                                                        Width="28" Height="28" 
+                                                        CornerRadius="6"
+                                                        Background="#0078D4"
+                                                        Visibility="{Binding IsPrimary, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="{Binding DisplayNumber}" 
+                                                               FontWeight="Bold" 
+                                                               FontSize="14"
+                                                               Foreground="White"
+                                                               HorizontalAlignment="Center" 
+                                                               VerticalAlignment="Center"/>
+                                                </Border>
+                                                <Border Grid.Column="0" 
+                                                        Width="28" Height="28" 
+                                                        CornerRadius="6"
+                                                        Background="#404040"
+                                                        Visibility="{Binding IsPrimary, Converter={StaticResource InverseBoolToVisibility}}">
+                                                    <TextBlock Text="{Binding DisplayNumber}" 
+                                                               FontWeight="Bold" 
+                                                               FontSize="14"
+                                                               Foreground="White"
+                                                               HorizontalAlignment="Center" 
+                                                               VerticalAlignment="Center"/>
+                                                </Border>
+                                                
+                                                <!-- Monitor Info -->
+                                                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding DeviceName}" 
+                                                               FontSize="13" 
+                                                               FontWeight="Medium"
+                                                               Foreground="White"/>
+                                                    <TextBlock FontSize="11" Foreground="#888">
+                                                        <Run Text="{Binding Width, Mode=OneWay}"/>
+                                                        <Run Text="×"/>
+                                                        <Run Text="{Binding Height, Mode=OneWay}"/>
+                                                        <Run Text="•"/>
+                                                        <Run Text="{Binding Orientation, Mode=OneWay}"/>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                                
+                                                <!-- Status -->
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="PRIMARY" 
+                                                               FontSize="10" 
+                                                               FontWeight="Bold"
+                                                               Foreground="#0078D4"
+                                                               Visibility="{Binding IsPrimary, Converter={StaticResource BoolToVisibility}}"/>
+                                                    <TextBlock Text="DISABLED" 
+                                                               FontSize="10" 
+                                                               Foreground="#666"
+                                                               Visibility="{Binding IsEnabled, Converter={StaticResource InverseBoolToVisibility}}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="border" Property="Background" Value="#3D3D3D"/>
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                                <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                
+                <!-- Footer -->
+                <Border Background="#2D2D2D" CornerRadius="0,0,12,12" Padding="12,8">
+                    <Grid>
+                        <Button Content="⟳ Refresh" 
+                                Style="{StaticResource MonitorButtonStyle}"
+                                Background="Transparent"
+                                FontSize="12"
+                                HorizontalAlignment="Left"
+                                Click="RefreshButton_Click"/>
+                        <Button Content="✕ Exit" 
+                                Style="{StaticResource MonitorButtonStyle}"
+                                Background="Transparent"
+                                FontSize="12"
+                                HorizontalAlignment="Right"
+                                Click="ExitButton_Click"/>
+                    </Grid>
+                </Border>
+            </StackPanel>
             
-            <!-- Visual Monitor Layout -->
-            <Border Background="#1F1F1F" Padding="16">
-                <Canvas x:Name="MonitorCanvas" Width="300" Height="120" ClipToBounds="True">
-                    <!-- Monitor items will be added programmatically -->
-                </Canvas>
-            </Border>
-            
-            <!-- Monitor List -->
-            <ItemsControl x:Name="MonitorList" Margin="8,0,8,8">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Button Style="{StaticResource MonitorButtonStyle}"
-                                Margin="0,4"
-                                Click="MonitorButton_Click"
-                                Tag="{Binding}">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="border" 
-                                            Background="#2D2D2D" 
-                                            CornerRadius="8"
-                                            Padding="12,10"
-                                            Cursor="Hand">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="32"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            
-                                            <!-- Display Number -->
-                                            <Border Grid.Column="0" 
-                                                    Width="28" Height="28" 
-                                                    CornerRadius="6"
-                                                    Background="#0078D4"
-                                                    Visibility="{Binding IsPrimary, Converter={StaticResource BoolToVisibility}}">
-                                                <TextBlock Text="{Binding DisplayNumber}" 
-                                                           FontWeight="Bold" 
-                                                           FontSize="14"
-                                                           Foreground="White"
-                                                           HorizontalAlignment="Center" 
-                                                           VerticalAlignment="Center"/>
-                                            </Border>
-                                            <Border Grid.Column="0" 
-                                                    Width="28" Height="28" 
-                                                    CornerRadius="6"
-                                                    Background="#404040"
-                                                    Visibility="{Binding IsPrimary, Converter={StaticResource InverseBoolToVisibility}}">
-                                                <TextBlock Text="{Binding DisplayNumber}" 
-                                                           FontWeight="Bold" 
-                                                           FontSize="14"
-                                                           Foreground="White"
-                                                           HorizontalAlignment="Center" 
-                                                           VerticalAlignment="Center"/>
-                                            </Border>
-                                            
-                                            <!-- Monitor Info -->
-                                            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding DeviceName}" 
-                                                           FontSize="13" 
-                                                           FontWeight="Medium"
-                                                           Foreground="White"/>
-                                                <TextBlock FontSize="11" Foreground="#888">
-                                                    <Run Text="{Binding Width, Mode=OneWay}"/>
-                                                    <Run Text="×"/>
-                                                    <Run Text="{Binding Height, Mode=OneWay}"/>
-                                                    <Run Text="•"/>
-                                                    <Run Text="{Binding Orientation, Mode=OneWay}"/>
-                                                </TextBlock>
-                                            </StackPanel>
-                                            
-                                            <!-- Status -->
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                                <TextBlock Text="PRIMARY" 
-                                                           FontSize="10" 
-                                                           FontWeight="Bold"
-                                                           Foreground="#0078D4"
-                                                           Visibility="{Binding IsPrimary, Converter={StaticResource BoolToVisibility}}"/>
-                                                <TextBlock Text="DISABLED" 
-                                                           FontSize="10" 
-                                                           Foreground="#666"
-                                                           Visibility="{Binding IsEnabled, Converter={StaticResource InverseBoolToVisibility}}"/>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="border" Property="Background" Value="#3D3D3D"/>
-                                        </Trigger>
-                                        <DataTrigger Binding="{Binding IsEnabled}" Value="False">
-                                            <Setter TargetName="border" Property="Opacity" Value="0.5"/>
-                                        </DataTrigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            
-            <!-- Footer -->
-            <Border Background="#2D2D2D" CornerRadius="0,0,12,12" Padding="12,8">
-                <Grid>
-                    <Button Content="⟳ Refresh" 
-                            Style="{StaticResource MonitorButtonStyle}"
-                            Background="Transparent"
-                            FontSize="12"
-                            HorizontalAlignment="Left"
-                            Click="RefreshButton_Click"/>
-                    <Button Content="✕ Exit" 
-                            Style="{StaticResource MonitorButtonStyle}"
-                            Background="Transparent"
-                            FontSize="12"
-                            HorizontalAlignment="Right"
-                            Click="ExitButton_Click"/>
-                </Grid>
-            </Border>
-        </StackPanel>
+            <!-- Loading Overlay -->
+            <Grid x:Name="LoadingOverlay" Background="#1F1F1F" Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <ProgressBar IsIndeterminate="True" Width="150" Height="4" Background="#333" BorderThickness="0" Foreground="#0078D4"/>
+                    <TextBlock Text="Loading monitors..." Margin="0,12,0,0" Foreground="#AAA" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
     </Border>
 </Window>
