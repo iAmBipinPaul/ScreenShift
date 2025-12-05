@@ -17,12 +17,9 @@ namespace MonitorSwitcher
 
             if (!createdNew)
             {
-                // Another instance is already running
-                MessageBox.Show(
-                    "Monitor Switcher is already running.\n\nCheck the system tray for the existing instance.",
-                    "Monitor Switcher",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                // Show modern styled dialog
+                var dialog = new AlreadyRunningDialog();
+                dialog.ShowDialog();
                 
                 Shutdown();
                 return;

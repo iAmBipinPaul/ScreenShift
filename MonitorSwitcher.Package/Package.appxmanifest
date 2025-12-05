@@ -7,13 +7,14 @@
   IgnorableNamespaces="uap rescap">
 
   <Identity
-    Name="AditiKraft.MonitorSwitcher"
-    Publisher="CN=iambi"
-    Version="0.0.7.0" />
+    Name="BipinPaul.MonitorSwitcher"
+    Publisher="CN=Bipin Paul"
+    Version="0.0.13.0"
+    ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>Monitor Switcher</DisplayName>
-    <PublisherDisplayName>Aditi Kraft</PublisherDisplayName>
+    <PublisherDisplayName>Bipin Paul</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
     <Description>Quickly switch your primary monitor from the system tray</Description>
   </Properties>

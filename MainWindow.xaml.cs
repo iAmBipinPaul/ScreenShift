@@ -60,24 +60,32 @@ namespace MonitorSwitcher
 
         private System.Drawing.Icon CreateTrayIcon()
         {
-            // Create a simple monitor icon
+            // Create a high-quality tray icon (32x32 for high DPI)
             using var bitmap = new Bitmap(32, 32);
             using var g = Graphics.FromImage(bitmap);
             
-            // Draw monitor shape
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             g.Clear(System.Drawing.Color.Transparent);
-            using var brush = new SolidBrush(System.Drawing.Color.FromArgb(0, 120, 212));
-            using var pen = new System.Drawing.Pen(System.Drawing.Color.White, 2);
+
+            // Colors
+            var whitePen = new System.Drawing.Pen(System.Drawing.Color.White, 2);
+            var greenBrush = new SolidBrush(System.Drawing.Color.FromArgb(12, 172, 92)); // AditiKraft Green
+            var whiteBrush = new SolidBrush(System.Drawing.Color.White);
+
+            // 1. Draw Monitor Screen (Green filled)
+            // Fill the screen area
+            g.FillRectangle(greenBrush, 4, 5, 24, 15);
             
-            // Monitor body
-            g.FillRectangle(brush, 4, 4, 24, 18);
-            g.DrawRectangle(pen, 4, 4, 24, 18);
+            // 2. Draw Monitor Bezel (White outline)
+            // Draw outside rectangle
+            g.DrawRectangle(whitePen, 2, 3, 28, 19);
             
-            // Stand
-            g.FillRectangle(brush, 12, 22, 8, 3);
-            g.FillRectangle(brush, 8, 25, 16, 3);
-            
-            // Convert to icon
+            // 3. Draw Stand (White)
+            // Neck
+            g.FillRectangle(whiteBrush, 14, 23, 4, 3);
+            // Base
+            g.FillRectangle(whiteBrush, 8, 26, 16, 2);
+
             IntPtr hicon = bitmap.GetHicon();
             return System.Drawing.Icon.FromHandle(hicon);
         }
