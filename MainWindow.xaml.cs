@@ -51,7 +51,7 @@ namespace MonitorSwitcher
             {
                 Icon = CreateTrayIcon(),
                 Visible = true,
-                Text = "Monitor Switcher"
+                Text = "ScreenShift"
             };
             
             _trayIcon.Click += TrayIcon_Click;

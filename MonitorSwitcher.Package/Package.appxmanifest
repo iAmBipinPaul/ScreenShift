@@ -13,7 +13,7 @@
     ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Monitor Switcher</DisplayName>
+    <DisplayName>ScreenShift</DisplayName>
     <PublisherDisplayName>Bipin Paul</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
     <Description>Quickly switch your primary monitor from the system tray</Description>
@@ -32,12 +32,12 @@
       Executable="MonitorSwitcher.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Monitor Switcher"
+        DisplayName="ScreenShift"
         Description="Quickly switch your primary monitor from the system tray"
         BackgroundColor="#0a0e12"
         Square150x150Logo="Images\Square150x150Logo.png"
         Square44x44Logo="Images\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" ShortName="Monitor Switcher">
+        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" ShortName="ScreenShift">
           <uap:ShowNameOnTiles>
             <uap:ShowOn Tile="square150x150Logo"/>
             <uap:ShowOn Tile="wide310x150Logo"/>

@@ -10,7 +10,7 @@
     <RootNamespace>MonitorSwitcher</RootNamespace>
     
     <!-- App Info -->
-    <Product>Monitor Switcher</Product>
+    <Product>ScreenShift</Product>
     <Company>Bipin Paul</Company>
     <Authors>Bipin Paul</Authors>
     <Description>Quickly switch your primary monitor from the system tray</Description>
