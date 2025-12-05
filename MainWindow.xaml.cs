@@ -353,6 +353,15 @@ namespace MonitorSwitcher
         {
             if (sender is System.Windows.Controls.Button btn && btn.ContextMenu != null)
             {
+                // Update checked state
+                foreach (var item in btn.ContextMenu.Items)
+                {
+                    if (item is MenuItem menuItem && menuItem.Tag is string theme)
+                    {
+                        menuItem.IsChecked = theme == _currentTheme;
+                    }
+                }
+                
                 btn.ContextMenu.IsOpen = true;
             }
         }
