@@ -1,20 +1,40 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.0.11222.15 d18.0
+VisualStudioVersion = 18.0.11222.15
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonitorSwitcher", "MonitorSwitcher.csproj", "{40148DF0-2CCE-2588-E34E-347919580E75}"
 EndProject
+Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "MonitorSwitcher.Package", "MonitorSwitcher.Package\MonitorSwitcher.Package.wapproj", "{63722AF8-4E85-4911-A665-9A931A91B020}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
+		Debug|ARM64 = Debug|ARM64
+		Debug|x64 = Debug|x64
+		Release|ARM64 = Release|ARM64
+		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{40148DF0-2CCE-2588-E34E-347919580E75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{40148DF0-2CCE-2588-E34E-347919580E75}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{40148DF0-2CCE-2588-E34E-347919580E75}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{40148DF0-2CCE-2588-E34E-347919580E75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{40148DF0-2CCE-2588-E34E-347919580E75}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{40148DF0-2CCE-2588-E34E-347919580E75}.Debug|ARM64.Build.0 = Debug|ARM64
+		{40148DF0-2CCE-2588-E34E-347919580E75}.Debug|x64.ActiveCfg = Debug|x64
+		{40148DF0-2CCE-2588-E34E-347919580E75}.Debug|x64.Build.0 = Debug|x64
+		{40148DF0-2CCE-2588-E34E-347919580E75}.Release|ARM64.ActiveCfg = Release|ARM64
+		{40148DF0-2CCE-2588-E34E-347919580E75}.Release|ARM64.Build.0 = Release|ARM64
+		{40148DF0-2CCE-2588-E34E-347919580E75}.Release|x64.ActiveCfg = Release|x64
+		{40148DF0-2CCE-2588-E34E-347919580E75}.Release|x64.Build.0 = Release|x64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Debug|ARM64.Build.0 = Debug|ARM64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Debug|ARM64.Deploy.0 = Debug|ARM64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Debug|x64.ActiveCfg = Debug|x64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Debug|x64.Build.0 = Debug|x64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Debug|x64.Deploy.0 = Debug|x64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Release|ARM64.ActiveCfg = Release|ARM64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Release|ARM64.Build.0 = Release|ARM64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Release|ARM64.Deploy.0 = Release|ARM64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Release|x64.ActiveCfg = Release|x64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Release|x64.Build.0 = Release|x64
+		{63722AF8-4E85-4911-A665-9A931A91B020}.Release|x64.Deploy.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

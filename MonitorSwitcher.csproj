@@ -22,9 +22,8 @@
     <!-- App Icon -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     
-    <!-- MSIX Packaging -->
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PublishProfile>Properties\PublishProfiles\win-x64.pubxml</PublishProfile>
+    <!-- Platform support for MSIX -->
+    <Platforms>x64;ARM64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
