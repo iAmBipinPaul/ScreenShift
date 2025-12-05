@@ -201,16 +201,7 @@
                                     Foreground="{DynamicResource TextPrimaryBrush}"
                                     FontSize="12"
                                     Margin="0,0,8,0"
-                                    Click="ThemeButton_Click">
-                                <Button.ContextMenu>
-                                    <ContextMenu Background="{DynamicResource SurfaceBrush}" 
-                                                 BorderBrush="{DynamicResource BorderBrush}">
-                                        <MenuItem Header="System Default" Click="ThemeMenuItem_Click" Tag="System"/>
-                                        <MenuItem Header="Light" Click="ThemeMenuItem_Click" Tag="Light"/>
-                                        <MenuItem Header="Dark" Click="ThemeMenuItem_Click" Tag="Dark"/>
-                                    </ContextMenu>
-                                </Button.ContextMenu>
-                            </Button>
+                                    Click="ThemeButton_Click"/>
                             
                             <Button Content="✕ Exit" 
                                     Style="{StaticResource MonitorButtonStyle}"

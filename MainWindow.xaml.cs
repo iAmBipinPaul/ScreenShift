@@ -351,19 +351,49 @@ namespace MonitorSwitcher
 
         private void ThemeButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button btn && btn.ContextMenu != null)
+            if (sender is System.Windows.Controls.Button btn)
             {
-                // Update checked state
-                foreach (var item in btn.ContextMenu.Items)
+                // Create a fresh ContextMenu each time to pick up current theme resources
+                var contextMenu = CreateThemeContextMenu();
+                contextMenu.PlacementTarget = btn;
+                contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+                contextMenu.IsOpen = true;
+            }
+        }
+
+        private ContextMenu CreateThemeContextMenu()
+        {
+            var contextMenu = new ContextMenu();
+            
+            // Apply style from resources
+            if (System.Windows.Application.Current.TryFindResource("ModernContextMenuStyle") is Style contextMenuStyle)
+            {
+                contextMenu.Style = contextMenuStyle;
+            }
+
+            var themes = new[] { ("System Default", "System"), ("Light", "Light"), ("Dark", "Dark") };
+            
+            foreach (var (header, tag) in themes)
+            {
+                var menuItem = new MenuItem
                 {
-                    if (item is MenuItem menuItem && menuItem.Tag is string theme)
-                    {
-                        menuItem.IsChecked = theme == _currentTheme;
-                    }
+                    Header = header,
+                    Tag = tag,
+                    IsCheckable = true,
+                    IsChecked = tag == _currentTheme
+                };
+                
+                // Apply style from resources
+                if (System.Windows.Application.Current.TryFindResource("ModernMenuItemStyle") is Style menuItemStyle)
+                {
+                    menuItem.Style = menuItemStyle;
                 }
                 
-                btn.ContextMenu.IsOpen = true;
+                menuItem.Click += ThemeMenuItem_Click;
+                contextMenu.Items.Add(menuItem);
             }
+
+            return contextMenu;
         }
 
         private void ThemeMenuItem_Click(object sender, RoutedEventArgs e)
