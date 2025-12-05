@@ -18,7 +18,6 @@ namespace MonitorSwitcher
     {
         public ObservableCollection<MonitorInfo> Monitors { get; set; } = new();
         private NotifyIcon? _trayIcon;
-
         private string _currentTheme = "System";
 
         public MainWindow()
@@ -30,16 +29,19 @@ namespace MonitorSwitcher
             // Listen for system theme changes
             Microsoft.Win32.SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
             
+            // Initialize theme
+            UpdateThemeVisuals();
+            
             // Hide window initially
             this.Hide();
         }
 
         private void SystemEvents_UserPreferenceChanged(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
         {
-            if (e.Category == Microsoft.Win32.UserPreferenceCategory.General && _currentTheme == "System")
+            // Just update visuals if we are in System mode. 
+            if (_currentTheme == "System")
             {
-                // Re-apply system theme on UI thread
-                Dispatcher.Invoke(() => ApplyTheme("System"));
+                Dispatcher.Invoke(() => UpdateThemeVisuals());
             }
         }
 
@@ -366,12 +368,16 @@ namespace MonitorSwitcher
         private void ApplyTheme(string theme)
         {
             _currentTheme = theme;
-            var resources = System.Windows.Application.Current.Resources;
+            UpdateThemeVisuals();
+        }
 
-            if (theme == "System")
+        private void UpdateThemeVisuals()
+        {
+            bool isDark = true; // Default to dark
+
+            if (_currentTheme == "System")
             {
                 // Detect system theme
-                bool isDark = true;
                 try
                 {
                     using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
@@ -383,12 +389,16 @@ namespace MonitorSwitcher
                     }
                 }
                 catch { }
-                
-                ApplyTheme(isDark ? "Dark" : "Light");
-                return;
             }
+            else if (_currentTheme == "Light")
+            {
+                isDark = false;
+            }
+            // else isDark remains true (Dark mode)
 
-            if (theme == "Light")
+            var resources = System.Windows.Application.Current.Resources;
+
+            if (!isDark) // Light
             {
                 resources["AppBackgroundBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(243, 243, 243));
                 resources["SurfaceBrush"] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 255, 255));
