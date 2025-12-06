@@ -28,3 +28,7 @@ dotnet publish -c Release -r win-x64 --self-contained
 1. Launch the app
 2. Click on any monitor card to set it as the primary display
 3. The change takes effect immediately
+
+## Notes
+- **Monitor Numbering**: Windows typically assigns **#1** to the internal display (laptop screen), regardless of connection order. This app follows the same behavior to match Windows Settings.
+

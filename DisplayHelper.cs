@@ -8,10 +8,11 @@ using Windows.Devices.Enumeration;
 
 namespace MonitorSwitcher
 {
-    /// <summary>
     /// Display helper using only modern Windows 11 APIs:
     /// - Windows.Devices.Display.DisplayMonitor (WinRT) for monitor enumeration
     /// - QueryDisplayConfig/SetDisplayConfig (CCD API) for display configuration
+    /// 
+    /// Note: This helper explicitly treats the Internal Display as #1 to match Windows Settings.
     /// </summary>
     public static class DisplayHelper
     {
