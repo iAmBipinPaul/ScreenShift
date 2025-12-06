@@ -305,7 +305,7 @@ namespace MonitorSwitcher
                 */
 
                 int counter = 1;
-                
+
                 // Add Internal Monitors first (usually just one)
                 foreach(var m in internalMonitors)
                 {
@@ -315,16 +315,6 @@ namespace MonitorSwitcher
                 }
 
                 // Add External Monitors, sorted by Target ID (which proxies for Port Order)
-                // We must sort the *Source* list before assigning numbers
-                // NOTE: winrtMonitors was implicitly sorted by discovery, but let's be explicit here
-                // We need to sort externalMonitors by their underlying TargetID.
-                // However, we lost the TargetID in the loop. 
-                // Let's rely on the fact that we processed them in order, effectively.
-                // Ideally, we should have kept the TargetID attached. 
-                // But for now, let's assume valid order or sort by DeviceName? 
-                // No, let's re-sort based on the WinRT list order which we sorted earlier?
-                // Actually, let's just add them.
-                
                 foreach(var m in externalMonitors)
                 {
                     m.DisplayNumber = counter.ToString();
@@ -457,44 +447,6 @@ namespace MonitorSwitcher
             }
         }
         
-        private static void LogAllCCDPaths()
-        {
-             var logPath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop), "monitor_debug.txt");
-            void Log(string msg) => System.IO.File.AppendAllText(logPath, msg + Environment.NewLine);
-            
-            try
-            {
-                uint numPaths = 0, numModes = 0;
-                if (GetDisplayConfigBufferSizes(QDC_ALL_PATHS, out numPaths, out numModes) != 0)
-                {
-                    Log("Failed to get buffer sizes for ALL_PATHS");
-                    return;
-                }
-
-                var paths = new DISPLAYCONFIG_PATH_INFO[numPaths];
-                var modes = new DISPLAYCONFIG_MODE_INFO[numModes];
-                uint pathCount = numPaths, modeCount = numModes;
-
-                if (QueryDisplayConfig(QDC_ALL_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) == 0)
-                {
-                    Log($"\n[QDC_ALL_PATHS Dump] Found {pathCount} total paths");
-                    for (int i = 0; i < pathCount; i++)
-                    {
-                        var p = paths[i];
-                        Log($"  Path {i}: Target={p.targetInfo.id}, Flags={p.flags}, Tech={p.targetInfo.outputTechnology}, Avail={p.targetInfo.targetAvailable}, Status={p.targetInfo.statusFlags}");
-                    }
-                }
-                else
-                {
-                    Log("QueryDisplayConfig QDC_ALL_PATHS failed");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"LogAllCCDPaths Error: {ex}");
-            }
-        }
-
         #endregion
 
         #region Private Methods
@@ -526,9 +478,6 @@ namespace MonitorSwitcher
 
         private static Dictionary<string, string> GetDisplayNumberMapping()
         {
-            var logPath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop), "monitor_debug.txt");
-            void Log(string msg) => System.IO.File.AppendAllText(logPath, msg + Environment.NewLine);
-
             var mapping = new Dictionary<string, string>();
             
             try
@@ -539,40 +488,22 @@ namespace MonitorSwitcher
                 // Enumerate Adapters
                 for (uint id = 0; EnumDisplayDevices(null, id, ref d, 0); id++)
                 {
-                    Log($"Adapter #{id}: {d.DeviceName} (State: {d.StateFlags})");
-                    
                     // Enumerate Monitors for this adapter
                     DISPLAY_DEVICE mon = new DISPLAY_DEVICE();
                     mon.cb = Marshal.SizeOf(mon);
                     
-                    if (EnumDisplayDevices(d.DeviceName, 0, ref mon, 0))
+                    if (EnumDisplayDevices(d.DeviceName, 0, ref mon, 0)) // usually index 0 is enough for pnp ID
                     {
-                        Log($"  -> Monitor found: {mon.DeviceID} | {mon.DeviceName}");
-                        if (!string.IsNullOrEmpty(mon.DeviceID))
+                        if (!string.IsNullOrEmpty(mon.DeviceID) && !mapping.ContainsKey(mon.DeviceID))
                         {
-                            // We use the Adapter ID (id + 1) as the likely "Settings Number"
-                            // But we store the DeviceName(\\.\DISPLAYx) as the value to match legacy logic first?
-                            // Actually, let's store the raw ID mapping to see what we get.
-                            // The original code used d.DeviceName (\\.\DISPLAYx).
-                            
-                            // Let's modify the map to store the Index as well, maybe?
-                            // For now, keep original behavior but LOG it.
-                            
-                            mapping[mon.DeviceID] = d.DeviceName; 
+                            mapping[mon.DeviceID] = d.DeviceName;
                         }
-                    }
-                    else
-                    {
-                        Log($"  -> No monitor at index 0");
                     }
                     
                     d.cb = Marshal.SizeOf(d);
                 }
             }
-            catch (Exception ex) 
-            {
-                Log($"Error in mapping: {ex.Message}");
-            }
+            catch { }
 
             return mapping;
         }
@@ -729,7 +660,7 @@ namespace MonitorSwitcher
                 _ => "Landscape"
             };
         }
-
+        
         #endregion
     }
 }
