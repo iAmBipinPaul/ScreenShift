@@ -223,108 +223,113 @@ namespace MonitorSwitcher
             
             try
             {
-                // Use WinRT API to get all monitors
+                // 1. Get all monitors via WinRT
                 var winrtMonitors = GetWinRTMonitorsAsync().GetAwaiter().GetResult();
                 
-                // Get Mapping of HardwareID -> MonitorNumber (from GDI DeviceName \\.\DISPLAY#)
+                // 2. Get GDI Device Name mapping (legacy API)
                 var deviceIdMap = GetDisplayNumberMapping();
 
-                // Sort by target ID to match typical enumeration
-                winrtMonitors = winrtMonitors.OrderBy(m => m.targetId).ToList();
+                // 3. Get modern CCD Paths to identify output technology (Internal vs External)
+                // We use QDC_ALL_PATHS so we can find the internal panel even if it is disabled/closed
+                var techMap = GetTargetTechnologyMapping();
                 
-                // Get active display configuration using modern CCD API
+                // 4. Get active configuration for positioning/resolution
                 var activeDisplays = GetActiveDisplayConfig();
                 
+                // Sorting Logic:
+                // Windows Heuristic: Internal Display is ALWAYS #1. 
+                // External displays follow based on connection priority (Target ID).
+                
+                // Sort by target ID to match typical Windows enumeration (Port Priority)
+                winrtMonitors = winrtMonitors.OrderBy(m => m.targetId).ToList();
+
+                var internalMonitors = new List<MonitorInfo>();
+                var externalMonitors = new List<MonitorInfo>();
+
                 foreach (var (name, targetId, physicalWidth, physicalHeight, deviceId) in winrtMonitors)
                 {
-                    // Try to resolve the official display number (Settings style)
-                    string displayNumber = "?";
-                    
-                    // The deviceId from WinRT (displayMonitor.DeviceId) is the Device Interface Path.
-                    // The keys in deviceIdMap are the Hardware IDs/Instance IDs from EnumDisplayDevices.
-                    // WinRT DeviceId usually *contains* parts of the Hardware ID.
-                    // E.g. WinRT: \\?\DISPLAY#DEL4045#...
-                    //     MapKey: MONITOR\DEL4015\...
-                    
-                    // Normalize the WinRT ID for comparison logic
-                    string winrtIdUpper = deviceId.ToUpperInvariant();
-
-                    // Try logical match
-                    foreach (var kvp in deviceIdMap)
+                    // Create basic monitor info
+                    var monitor = new MonitorInfo
                     {
-                         // Check if WinRT ID contains the Device ID from the map (or parts of it)
-                         // 1. Remove MONITOR\ prefix from map key if present
-                         string mapKey = kvp.Key.ToUpperInvariant();
-                         string cleanMapKey = mapKey.Replace("MONITOR\\", "").Replace("{", "").Replace("}", "");
-                         
-                         // also clean WinRT id
-                         string cleanWinRT = winrtIdUpper.Replace("#", "\\");
+                        DeviceName = name,
+                        AdapterName = "Disabled", // Default
+                        DeviceKey = "",
+                        Width = (int)physicalWidth,
+                        Height = (int)physicalHeight,
+                        RefreshRate = 0,
+                        Orientation = "N/A",
+                        IsPrimary = false,
+                        IsEnabled = false,
+                        PositionX = 0,
+                        PositionY = 0
+                    };
 
-                         if (cleanWinRT.Contains(cleanMapKey) || cleanWinRT.Contains(mapKey) || winrtIdUpper.Contains(cleanMapKey))
-                         {
-                             // Found a potential match
-                             var matchResult = System.Text.RegularExpressions.Regex.Match(kvp.Value, @"\d+");
-                             if (matchResult.Success)
-                             {
-                                 displayNumber = matchResult.Value;
-                                 break;
-                             }
-                         }
+                    // Check output technology to see if this is an Internal Display
+                    // 0x80000000 = DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INTERNAL
+                    // 0x0B = DISPLAYCONFIG_OUTPUT_TECHNOLOGY_DISPLAYPORT_EMBEDDED (eDP)
+                    bool isInternal = false;
+                    if (techMap.TryGetValue(targetId, out uint tech))
+                    {
+                        if (tech == 0x80000000 || tech == 0x0B)
+                            isInternal = true;
                     }
 
-                    // Try to find matching active display by target ID
+                    // Try to match with Active Display Config
                     var activeMatch = activeDisplays.FirstOrDefault(a => a.targetId == targetId);
-                    
                     if (activeMatch.gdiName != null)
                     {
-                        // Fallback: if mapping failed but active config has GDI name (very likely same)
-                        if (displayNumber == "?" && !string.IsNullOrEmpty(activeMatch.gdiName))
-                        {
-                             var match = System.Text.RegularExpressions.Regex.Match(activeMatch.gdiName, @"\d+");
-                             if (match.Success) displayNumber = match.Value;
-                        }
-
-                        // Final Fallback for active
-                        if (displayNumber == "?") displayNumber = (monitors.Count + 1).ToString();
-
-                        monitors.Add(new MonitorInfo
-                        {
-                            DeviceName = name,
-                            AdapterName = "Graphics Adapter",
-                            DeviceKey = activeMatch.gdiName,
-                            DisplayNumber = displayNumber,
-                            Width = activeMatch.width,
-                            Height = activeMatch.height,
-                            RefreshRate = activeMatch.refreshRate,
-                            Orientation = GetOrientationString(activeMatch.rotation),
-                            IsPrimary = activeMatch.isPrimary,
-                            IsEnabled = true,
-                            PositionX = activeMatch.posX,
-                            PositionY = activeMatch.posY
-                        });
+                        monitor.DeviceKey = activeMatch.gdiName;
+                        monitor.Width = activeMatch.width;
+                        monitor.Height = activeMatch.height;
+                        monitor.RefreshRate = activeMatch.refreshRate;
+                        monitor.Orientation = GetOrientationString(activeMatch.rotation);
+                        monitor.IsPrimary = activeMatch.isPrimary;
+                        monitor.IsEnabled = true;
+                        monitor.PositionX = activeMatch.posX;
+                        monitor.PositionY = activeMatch.posY;
+                        monitor.AdapterName = "Graphics Adapter";
                     }
+
+                    if (isInternal)
+                        internalMonitors.Add(monitor);
                     else
-                    {
-                        // Disabled monitor
-                        // Try to infer number from mapping if we found it
-                        if (displayNumber == "?") displayNumber = (monitors.Count + 1).ToString();
+                        externalMonitors.Add(monitor);
+                }
 
-                        monitors.Add(new MonitorInfo
-                        {
-                            DeviceName = name,
-                            AdapterName = "Disabled",
-                            DeviceKey = "",
-                            DisplayNumber = displayNumber,
-                            Width = (int)physicalWidth,
-                            Height = (int)physicalHeight,
-                            RefreshRate = 0,
-                            Orientation = "N/A",
-                            IsPrimary = false,
-                            IsEnabled = false,
-                            PositionX = 0,
-                            PositionY = 0
-                        });
-                    }
+                // 5. Assign Display Numbers
+                /* 
+                   NOTE: We explicitly treat the Internal Display as #1.
+                   Windows Settings typically assigns #1 to the internal laptop screen regardless of 
+                   its connection ID or port order. We replicate this behavior here to ensure
+                   consistency with the OS Settings app.
+                */
+
+                int counter = 1;
+                
+                // Add Internal Monitors first (usually just one)
+                foreach(var m in internalMonitors)
+                {
+                    m.DisplayNumber = counter.ToString();
+                    monitors.Add(m);
+                    counter++;
+                }
+
+                // Add External Monitors, sorted by Target ID (which proxies for Port Order)
+                // We must sort the *Source* list before assigning numbers
+                // NOTE: winrtMonitors was implicitly sorted by discovery, but let's be explicit here
+                // We need to sort externalMonitors by their underlying TargetID.
+                // However, we lost the TargetID in the loop. 
+                // Let's rely on the fact that we processed them in order, effectively.
+                // Ideally, we should have kept the TargetID attached. 
+                // But for now, let's assume valid order or sort by DeviceName? 
+                // No, let's re-sort based on the WinRT list order which we sorted earlier?
+                // Actually, let's just add them.
+                
+                foreach(var m in externalMonitors)
+                {
+                    m.DisplayNumber = counter.ToString();
+                    monitors.Add(m);
+                    counter++;
                 }
             }
             catch (Exception)
@@ -333,7 +338,37 @@ namespace MonitorSwitcher
                 return GetDisplaysFromCCD();
             }
             
-            return monitors.OrderBy(m => int.Parse(m.DisplayNumber)).ToList();
+            return monitors;
+        }
+
+        private static Dictionary<uint, uint> GetTargetTechnologyMapping()
+        {
+            var mapping = new Dictionary<uint, uint>();
+            try
+            {
+                uint numPaths = 0, numModes = 0;
+                if (GetDisplayConfigBufferSizes(QDC_ALL_PATHS, out numPaths, out numModes) != 0)
+                    return mapping;
+
+                var paths = new DISPLAYCONFIG_PATH_INFO[numPaths];
+                var modes = new DISPLAYCONFIG_MODE_INFO[numModes];
+                uint pathCount = numPaths, modeCount = numModes;
+
+                if (QueryDisplayConfig(QDC_ALL_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) == 0)
+                {
+                    for (int i = 0; i < pathCount; i++)
+                    {
+                        var p = paths[i];
+                        // Store target ID -> Output Technology
+                        if (!mapping.ContainsKey(p.targetInfo.id))
+                        {
+                            mapping[p.targetInfo.id] = p.targetInfo.outputTechnology;
+                        }
+                    }
+                }
+            }
+            catch {}
+            return mapping;
         }
 
         /// <summary>
@@ -421,6 +456,44 @@ namespace MonitorSwitcher
                 return false;
             }
         }
+        
+        private static void LogAllCCDPaths()
+        {
+             var logPath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop), "monitor_debug.txt");
+            void Log(string msg) => System.IO.File.AppendAllText(logPath, msg + Environment.NewLine);
+            
+            try
+            {
+                uint numPaths = 0, numModes = 0;
+                if (GetDisplayConfigBufferSizes(QDC_ALL_PATHS, out numPaths, out numModes) != 0)
+                {
+                    Log("Failed to get buffer sizes for ALL_PATHS");
+                    return;
+                }
+
+                var paths = new DISPLAYCONFIG_PATH_INFO[numPaths];
+                var modes = new DISPLAYCONFIG_MODE_INFO[numModes];
+                uint pathCount = numPaths, modeCount = numModes;
+
+                if (QueryDisplayConfig(QDC_ALL_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) == 0)
+                {
+                    Log($"\n[QDC_ALL_PATHS Dump] Found {pathCount} total paths");
+                    for (int i = 0; i < pathCount; i++)
+                    {
+                        var p = paths[i];
+                        Log($"  Path {i}: Target={p.targetInfo.id}, Flags={p.flags}, Tech={p.targetInfo.outputTechnology}, Avail={p.targetInfo.targetAvailable}, Status={p.targetInfo.statusFlags}");
+                    }
+                }
+                else
+                {
+                    Log("QueryDisplayConfig QDC_ALL_PATHS failed");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"LogAllCCDPaths Error: {ex}");
+            }
+        }
 
         #endregion
 
@@ -453,6 +526,9 @@ namespace MonitorSwitcher
 
         private static Dictionary<string, string> GetDisplayNumberMapping()
         {
+            var logPath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop), "monitor_debug.txt");
+            void Log(string msg) => System.IO.File.AppendAllText(logPath, msg + Environment.NewLine);
+
             var mapping = new Dictionary<string, string>();
             
             try
@@ -463,22 +539,40 @@ namespace MonitorSwitcher
                 // Enumerate Adapters
                 for (uint id = 0; EnumDisplayDevices(null, id, ref d, 0); id++)
                 {
+                    Log($"Adapter #{id}: {d.DeviceName} (State: {d.StateFlags})");
+                    
                     // Enumerate Monitors for this adapter
                     DISPLAY_DEVICE mon = new DISPLAY_DEVICE();
                     mon.cb = Marshal.SizeOf(mon);
                     
-                    if (EnumDisplayDevices(d.DeviceName, 0, ref mon, 0)) // usually index 0 is enough for pnp ID
+                    if (EnumDisplayDevices(d.DeviceName, 0, ref mon, 0))
                     {
-                        if (!string.IsNullOrEmpty(mon.DeviceID) && !mapping.ContainsKey(mon.DeviceID))
+                        Log($"  -> Monitor found: {mon.DeviceID} | {mon.DeviceName}");
+                        if (!string.IsNullOrEmpty(mon.DeviceID))
                         {
-                            mapping[mon.DeviceID] = d.DeviceName;
+                            // We use the Adapter ID (id + 1) as the likely "Settings Number"
+                            // But we store the DeviceName(\\.\DISPLAYx) as the value to match legacy logic first?
+                            // Actually, let's store the raw ID mapping to see what we get.
+                            // The original code used d.DeviceName (\\.\DISPLAYx).
+                            
+                            // Let's modify the map to store the Index as well, maybe?
+                            // For now, keep original behavior but LOG it.
+                            
+                            mapping[mon.DeviceID] = d.DeviceName; 
                         }
+                    }
+                    else
+                    {
+                        Log($"  -> No monitor at index 0");
                     }
                     
                     d.cb = Marshal.SizeOf(d);
                 }
             }
-            catch { }
+            catch (Exception ex) 
+            {
+                Log($"Error in mapping: {ex.Message}");
+            }
 
             return mapping;
         }
