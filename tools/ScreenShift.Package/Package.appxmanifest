@@ -7,9 +7,9 @@
   IgnorableNamespaces="uap rescap">
 
   <Identity
-    Name="BipinPaul.MonitorSwitcher"
+    Name="BipinPaul.ScreenShift"
     Publisher="CN=Bipin Paul"
-    Version="0.0.24.0"
+    Version="0.0.26.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
@@ -29,7 +29,7 @@
 
   <Applications>
     <Application Id="App"
-      Executable="MonitorSwitcher.exe"
+      Executable="ScreenShift.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="ScreenShift"

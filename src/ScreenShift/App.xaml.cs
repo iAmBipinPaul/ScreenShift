@@ -2,12 +2,12 @@ using System;
 using System.Threading;
 using System.Windows;
 
-namespace MonitorSwitcher
+namespace ScreenShift
 {
     public partial class App : Application
     {
         private static Mutex? _mutex;
-        private const string MutexName = "MonitorSwitcher_SingleInstance_Mutex";
+        private const string MutexName = "ScreenShift_SingleInstance_Mutex";
 
         protected override void OnStartup(StartupEventArgs e)
         {

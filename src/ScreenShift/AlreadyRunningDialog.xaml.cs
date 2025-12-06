@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 
-namespace MonitorSwitcher
+namespace ScreenShift
 {
     public partial class AlreadyRunningDialog : Window
     {

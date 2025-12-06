@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <AssemblyName>MonitorSwitcher</AssemblyName>
-    <RootNamespace>MonitorSwitcher</RootNamespace>
+    <AssemblyName>ScreenShift</AssemblyName>
+    <RootNamespace>ScreenShift</RootNamespace>
     
     <!-- App Info -->
     <Product>ScreenShift</Product>

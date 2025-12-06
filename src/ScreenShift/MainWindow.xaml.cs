@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace MonitorSwitcher
+namespace ScreenShift
 {
     public partial class MainWindow : Window
     {

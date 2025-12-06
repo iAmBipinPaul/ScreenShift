@@ -64,8 +64,8 @@
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
-    <PackageCertificateThumbprint>78F70B3AC2C7264D09767B1C994B2D280180496C</PackageCertificateThumbprint>
-    <EntryPointProjectUniqueName>..\..\src\ScreenShift\MonitorSwitcher.csproj</EntryPointProjectUniqueName>
+    <PackageCertificateThumbprint>0C2A156F6179305E173B3D3803CB0B6015170F44</PackageCertificateThumbprint>
+    <EntryPointProjectUniqueName>..\..\src\ScreenShift\ScreenShift.csproj</EntryPointProjectUniqueName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <AppxBundle>Always</AppxBundle>
@@ -110,12 +110,13 @@
     <Content Include="Images\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Images\StoreLogo.png" />
     <Content Include="Images\Wide310x150Logo.scale-200.png" />
+    <None Include="ScreenShift.Package_TemporaryKey.pfx" />
   </ItemGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7175" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ScreenShift\MonitorSwitcher.csproj" />
+    <ProjectReference Include="..\..\src\ScreenShift\ScreenShift.csproj" />
   </ItemGroup>
 </Project>

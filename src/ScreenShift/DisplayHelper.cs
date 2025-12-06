@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Windows.Devices.Display;
 using Windows.Devices.Enumeration;
 
-namespace MonitorSwitcher
+namespace ScreenShift
 {
     /// Display helper using only modern Windows 11 APIs:
     /// - Windows.Devices.Display.DisplayMonitor (WinRT) for monitor enumeration

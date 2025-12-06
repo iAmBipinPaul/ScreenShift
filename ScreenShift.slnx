@@ -7,7 +7,7 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/src/">
-    <Project Path="src/ScreenShift/MonitorSwitcher.csproj">
+    <Project Path="src/ScreenShift/ScreenShift.csproj">
       <Platform Solution="*|Any CPU" Project="x64" />
       <Platform Solution="*|ARM" Project="x64" />
       <Platform Solution="*|ARM64" Project="ARM64" />
@@ -16,7 +16,7 @@
     </Project>
   </Folder>
   <Folder Name="/tools/">
-    <Project Path="tools/MonitorSwitcher.Package/MonitorSwitcher.Package.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5" Id="63722af8-4e85-4911-a665-9a931a91b020">
+    <Project Path="tools/ScreenShift.Package/ScreenShift.Package.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5" Id="63722af8-4e85-4911-a665-9a931a91b020">
       <Deploy />
     </Project>
   </Folder>
