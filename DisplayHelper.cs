@@ -35,6 +35,9 @@ namespace MonitorSwitcher
         [DllImport("user32.dll")]
         private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_TARGET_DEVICE_NAME requestPacket);
 
+        [DllImport("user32.dll")]
+        public static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
+
         #endregion
 
         #region Constants
@@ -47,10 +50,28 @@ namespace MonitorSwitcher
         private const uint SDC_ALLOW_CHANGES = 0x00000400;
         private const uint DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1;
         private const uint DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME = 2;
+        private const int EDD_GET_DEVICE_INTERFACE_NAME = 0x00000001;
 
         #endregion
 
         #region Structures
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+        public struct DISPLAY_DEVICE
+        {
+            [MarshalAs(UnmanagedType.U4)]
+            public int cb;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+            public string DeviceName;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            public string DeviceString;
+            [MarshalAs(UnmanagedType.U4)]
+            public uint StateFlags;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            public string DeviceID;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            public string DeviceKey;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         private struct LUID
@@ -202,29 +223,76 @@ namespace MonitorSwitcher
             
             try
             {
-                // Use WinRT API to get all monitors with correct display numbering
+                // Use WinRT API to get all monitors
                 var winrtMonitors = GetWinRTMonitorsAsync().GetAwaiter().GetResult();
                 
-                // Sort by target ID to match Windows Settings order
+                // Get Mapping of HardwareID -> MonitorNumber (from GDI DeviceName \\.\DISPLAY#)
+                var deviceIdMap = GetDisplayNumberMapping();
+
+                // Sort by target ID to match typical enumeration
                 winrtMonitors = winrtMonitors.OrderBy(m => m.targetId).ToList();
                 
                 // Get active display configuration using modern CCD API
                 var activeDisplays = GetActiveDisplayConfig();
                 
-                int displayNumber = 1;
-                foreach (var (name, targetId, physicalWidth, physicalHeight) in winrtMonitors)
+                foreach (var (name, targetId, physicalWidth, physicalHeight, deviceId) in winrtMonitors)
                 {
+                    // Try to resolve the official display number (Settings style)
+                    string displayNumber = "?";
+                    
+                    // The deviceId from WinRT (displayMonitor.DeviceId) is the Device Interface Path.
+                    // The keys in deviceIdMap are the Hardware IDs/Instance IDs from EnumDisplayDevices.
+                    // WinRT DeviceId usually *contains* parts of the Hardware ID.
+                    // E.g. WinRT: \\?\DISPLAY#DEL4045#...
+                    //     MapKey: MONITOR\DEL4015\...
+                    
+                    // Normalize the WinRT ID for comparison logic
+                    string winrtIdUpper = deviceId.ToUpperInvariant();
+
+                    // Try logical match
+                    foreach (var kvp in deviceIdMap)
+                    {
+                         // Check if WinRT ID contains the Device ID from the map (or parts of it)
+                         // 1. Remove MONITOR\ prefix from map key if present
+                         string mapKey = kvp.Key.ToUpperInvariant();
+                         string cleanMapKey = mapKey.Replace("MONITOR\\", "").Replace("{", "").Replace("}", "");
+                         
+                         // also clean WinRT id
+                         string cleanWinRT = winrtIdUpper.Replace("#", "\\");
+
+                         if (cleanWinRT.Contains(cleanMapKey) || cleanWinRT.Contains(mapKey) || winrtIdUpper.Contains(cleanMapKey))
+                         {
+                             // Found a potential match
+                             var matchResult = System.Text.RegularExpressions.Regex.Match(kvp.Value, @"\d+");
+                             if (matchResult.Success)
+                             {
+                                 displayNumber = matchResult.Value;
+                                 break;
+                             }
+                         }
+                    }
+
                     // Try to find matching active display by target ID
                     var activeMatch = activeDisplays.FirstOrDefault(a => a.targetId == targetId);
                     
                     if (activeMatch.gdiName != null)
                     {
+                        // Fallback: if mapping failed but active config has GDI name (very likely same)
+                        if (displayNumber == "?" && !string.IsNullOrEmpty(activeMatch.gdiName))
+                        {
+                             var match = System.Text.RegularExpressions.Regex.Match(activeMatch.gdiName, @"\d+");
+                             if (match.Success) displayNumber = match.Value;
+                        }
+
+                        // Final Fallback for active
+                        if (displayNumber == "?") displayNumber = (monitors.Count + 1).ToString();
+
                         monitors.Add(new MonitorInfo
                         {
                             DeviceName = name,
                             AdapterName = "Graphics Adapter",
                             DeviceKey = activeMatch.gdiName,
-                            DisplayNumber = displayNumber.ToString(),
+                            DisplayNumber = displayNumber,
                             Width = activeMatch.width,
                             Height = activeMatch.height,
                             RefreshRate = activeMatch.refreshRate,
@@ -238,12 +306,15 @@ namespace MonitorSwitcher
                     else
                     {
                         // Disabled monitor
+                        // Try to infer number from mapping if we found it
+                        if (displayNumber == "?") displayNumber = (monitors.Count + 1).ToString();
+
                         monitors.Add(new MonitorInfo
                         {
                             DeviceName = name,
                             AdapterName = "Disabled",
                             DeviceKey = "",
-                            DisplayNumber = displayNumber.ToString(),
+                            DisplayNumber = displayNumber,
                             Width = (int)physicalWidth,
                             Height = (int)physicalHeight,
                             RefreshRate = 0,
@@ -254,8 +325,6 @@ namespace MonitorSwitcher
                             PositionY = 0
                         });
                     }
-                    
-                    displayNumber++;
                 }
             }
             catch (Exception)
@@ -264,7 +333,7 @@ namespace MonitorSwitcher
                 return GetDisplaysFromCCD();
             }
             
-            return monitors;
+            return monitors.OrderBy(m => int.Parse(m.DisplayNumber)).ToList();
         }
 
         /// <summary>
@@ -357,9 +426,9 @@ namespace MonitorSwitcher
 
         #region Private Methods
 
-        private static async Task<List<(string name, uint targetId, uint physicalWidth, uint physicalHeight)>> GetWinRTMonitorsAsync()
+        private static async Task<List<(string name, uint targetId, uint physicalWidth, uint physicalHeight, string deviceId)>> GetWinRTMonitorsAsync()
         {
-            var result = new List<(string, uint, uint, uint)>();
+            var result = new List<(string, uint, uint, uint, string)>();
             
             var displayMonitors = await DeviceInformation.FindAllAsync(DisplayMonitor.GetDeviceSelector());
             
@@ -375,11 +444,43 @@ namespace MonitorSwitcher
                     uint width = (uint)displayMonitor.NativeResolutionInRawPixels.Width;
                     uint height = (uint)displayMonitor.NativeResolutionInRawPixels.Height;
                     
-                    result.Add((name, displayMonitor.DisplayAdapterTargetId, width, height));
+                    result.Add((name, displayMonitor.DisplayAdapterTargetId, width, height, displayMonitor.DeviceId));
                 }
             }
             
             return result;
+        }
+
+        private static Dictionary<string, string> GetDisplayNumberMapping()
+        {
+            var mapping = new Dictionary<string, string>();
+            
+            try
+            {
+                DISPLAY_DEVICE d = new DISPLAY_DEVICE();
+                d.cb = Marshal.SizeOf(d);
+                
+                // Enumerate Adapters
+                for (uint id = 0; EnumDisplayDevices(null, id, ref d, 0); id++)
+                {
+                    // Enumerate Monitors for this adapter
+                    DISPLAY_DEVICE mon = new DISPLAY_DEVICE();
+                    mon.cb = Marshal.SizeOf(mon);
+                    
+                    if (EnumDisplayDevices(d.DeviceName, 0, ref mon, 0)) // usually index 0 is enough for pnp ID
+                    {
+                        if (!string.IsNullOrEmpty(mon.DeviceID) && !mapping.ContainsKey(mon.DeviceID))
+                        {
+                            mapping[mon.DeviceID] = d.DeviceName;
+                        }
+                    }
+                    
+                    d.cb = Marshal.SizeOf(d);
+                }
+            }
+            catch { }
+
+            return mapping;
         }
 
         private static List<(string gdiName, uint targetId, int width, int height, int refreshRate, uint rotation, bool isPrimary, int posX, int posY)> GetActiveDisplayConfig()

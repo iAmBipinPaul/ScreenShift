@@ -9,7 +9,7 @@
   <Identity
     Name="BipinPaul.MonitorSwitcher"
     Publisher="CN=Bipin Paul"
-    Version="0.0.13.0"
+    Version="0.0.14.0"
     ProcessorArchitecture="x64" />
 
   <Properties>

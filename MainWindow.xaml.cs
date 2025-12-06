@@ -197,20 +197,58 @@ namespace MonitorSwitcher
             MonitorCanvas.Children.Clear();
             
             var activeMonitors = Monitors.Where(m => m.IsEnabled).ToList();
-            if (activeMonitors.Count == 0) return;
+            var disabledMonitors = Monitors.Where(m => !m.IsEnabled).ToList();
+
+            if (activeMonitors.Count == 0 && disabledMonitors.Count == 0) return;
 
             // Get visual dimensions (accounting for rotation)
             int GetVisualWidth(MonitorInfo m) => m.Orientation.Contains("Portrait") ? m.Height : m.Width;
             int GetVisualHeight(MonitorInfo m) => m.Orientation.Contains("Portrait") ? m.Width : m.Height;
 
-            // Find bounds
-            int minX = activeMonitors.Min(m => m.PositionX);
-            int minY = activeMonitors.Min(m => m.PositionY);
-            int maxX = activeMonitors.Max(m => m.PositionX + GetVisualWidth(m));
-            int maxY = activeMonitors.Max(m => m.PositionY + GetVisualHeight(m));
+            // Calculate layout for active monitors
+            int minX = 0, minY = 0, maxX = 0, maxY = 0;
+            
+            if (activeMonitors.Count > 0)
+            {
+                minX = activeMonitors.Min(m => m.PositionX);
+                minY = activeMonitors.Min(m => m.PositionY);
+                maxX = activeMonitors.Max(m => m.PositionX + GetVisualWidth(m));
+                maxY = activeMonitors.Max(m => m.PositionY + GetVisualHeight(m));
+            }
+            
+            // assign positions to disabled monitors (stack them to the right)
+            if (disabledMonitors.Count > 0)
+            {
+                int startX = activeMonitors.Count > 0 ? maxX + 100 : 0;
+                int startY = activeMonitors.Count > 0 ? activeMonitors.Min(m => m.PositionY) : 0;
+
+                foreach (var dm in disabledMonitors)
+                {
+                    // Use a temporary position for visualization only
+                    dm.PositionX = startX;
+                    dm.PositionY = startY;
+                    
+                    int w = GetVisualWidth(dm);
+                    int h = GetVisualHeight(dm);
+                    
+                    startX += w + 50;
+                }
+                
+                // Recalculate bounds including disabled monitors
+                var allMonitors = activeMonitors.Concat(disabledMonitors).ToList();
+                minX = allMonitors.Min(m => m.PositionX);
+                minY = allMonitors.Min(m => m.PositionY);
+                maxX = allMonitors.Max(m => m.PositionX + GetVisualWidth(m));
+                maxY = allMonitors.Max(m => m.PositionY + GetVisualHeight(m));
+            }
+
+            var monitorsToDraw = activeMonitors.Concat(disabledMonitors).ToList();
 
             double totalWidth = maxX - minX;
             double totalHeight = maxY - minY;
+            
+            if (totalWidth == 0) totalWidth = 1920; 
+            if (totalHeight == 0) totalHeight = 1080;
 
             double canvasWidth = MonitorCanvas.Width;
             double canvasHeight = MonitorCanvas.Height;
@@ -218,18 +256,25 @@ namespace MonitorSwitcher
             double scaleX = canvasWidth / totalWidth;
             double scaleY = canvasHeight / totalHeight;
             double scale = Math.Min(scaleX, scaleY) * 0.9; // 90% to leave padding
+            
+            // Limit scale if it's too huge (single small monitor)
+            if (scale > 0.15) scale = 0.15; 
 
             double visualTotalWidth = totalWidth * scale;
             double visualTotalHeight = totalHeight * scale;
             double offsetX = (canvasWidth - visualTotalWidth) / 2;
             double offsetY = (canvasHeight - visualTotalHeight) / 2;
 
-            foreach (var monitor in activeMonitors)
+            foreach (var monitor in monitorsToDraw)
             {
                 double x = ((monitor.PositionX - minX) * scale) + offsetX;
                 double y = ((monitor.PositionY - minY) * scale) + offsetY;
                 double width = GetVisualWidth(monitor) * scale;
                 double height = GetVisualHeight(monitor) * scale;
+                
+                // Ensure min size for visibility
+                if (width < 30) width = 30;
+                if (height < 30) height = 30;
 
                 // Create monitor rectangle
                 var border = new Border
@@ -243,18 +288,23 @@ namespace MonitorSwitcher
                 };
                 
                 // Set dynamic colors
-                if (monitor.IsPrimary)
+                if (!monitor.IsEnabled)
+                {
+                    // Disabled styling
+                    border.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(20, 128, 128, 128)); // Very faint grey
+                    border.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(100, 100, 100, 100)); // Grey border
+                }
+                else if (monitor.IsPrimary)
                 {
                     border.SetResourceReference(Border.BackgroundProperty, "AccentBrush");
+                    border.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 128, 128, 128));
                 }
                 else
                 {
                     border.SetResourceReference(Border.BackgroundProperty, "MonitorIconBackgroundBrush");
+                    border.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 128, 128, 128));
                 }
                 
-                // Border brush is always the same or maybe accent? Let's use a subtle border
-                border.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 128, 128, 128));
-
                 // Add content
                 var stack = new StackPanel
                 {
@@ -269,12 +319,15 @@ namespace MonitorSwitcher
                     FontWeight = FontWeights.Bold,
                     HorizontalAlignment = System.Windows.HorizontalAlignment.Center
                 };
-                numberText.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimaryBrush");
                 
-                // If primary, text should be white regardless of theme because background is blue
-                if (monitor.IsPrimary)
+                if (monitor.IsEnabled)
                 {
-                    numberText.Foreground = System.Windows.Media.Brushes.White;
+                    numberText.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimaryBrush");
+                    if (monitor.IsPrimary) numberText.Foreground = System.Windows.Media.Brushes.White;
+                }
+                else
+                {
+                    numberText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromArgb(100, 128, 128, 128)); // Dim number
                 }
 
                 stack.Children.Add(numberText);
@@ -283,14 +336,18 @@ namespace MonitorSwitcher
                 {
                     var nameText = new TextBlock
                     {
-                        Text = monitor.DeviceName,
+                        Text = monitor.IsEnabled ? monitor.DeviceName : "Disabled",
                         FontSize = 8,
                         HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
                         TextTrimming = TextTrimming.CharacterEllipsis,
                         MaxWidth = width - 8
                     };
                     
-                    if (monitor.IsPrimary)
+                    if (!monitor.IsEnabled)
+                    {
+                        nameText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromArgb(100, 128, 128, 128));
+                    }
+                    else if (monitor.IsPrimary)
                     {
                         nameText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 255, 255, 255));
                     }
@@ -303,7 +360,16 @@ namespace MonitorSwitcher
                 }
 
                 border.Child = stack;
-                border.MouseLeftButtonDown += VisualMonitor_Click;
+                
+                if (monitor.IsEnabled)
+                {
+                    border.MouseLeftButtonDown += VisualMonitor_Click;
+                }
+                else
+                {
+                   // Maybe show a tooltip saying it's disabled?
+                   border.ToolTip = "This monitor is currently disabled in Windows Settings.";
+                }
 
                 Canvas.SetLeft(border, x);
                 Canvas.SetTop(border, y);
