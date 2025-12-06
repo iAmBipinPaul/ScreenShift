@@ -5,12 +5,10 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Shapes;
 using System.Windows.Input;
 using System.Threading.Tasks;
 using System.Drawing;
 using System.Windows.Forms;
-using System.IO;
 
 namespace MonitorSwitcher
 {
@@ -435,9 +433,9 @@ namespace MonitorSwitcher
             }
         }
 
-        private ContextMenu CreateThemeContextMenu()
+        private System.Windows.Controls.ContextMenu CreateThemeContextMenu()
         {
-            var contextMenu = new ContextMenu();
+            var contextMenu = new System.Windows.Controls.ContextMenu();
             
             // Apply style from resources
             if (System.Windows.Application.Current.TryFindResource("ModernContextMenuStyle") is Style contextMenuStyle)
@@ -449,7 +447,7 @@ namespace MonitorSwitcher
             
             foreach (var (header, tag) in themes)
             {
-                var menuItem = new MenuItem
+                var menuItem = new System.Windows.Controls.MenuItem
                 {
                     Header = header,
                     Tag = tag,
@@ -472,7 +470,7 @@ namespace MonitorSwitcher
 
         private void ThemeMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuItem item && item.Tag is string theme)
+            if (sender is System.Windows.Controls.MenuItem item && item.Tag is string theme)
             {
                 ApplyTheme(theme);
             }

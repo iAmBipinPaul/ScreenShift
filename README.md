@@ -9,7 +9,7 @@ A simple Windows 11 app to quickly change your primary monitor in a multi-monito
 
 ## Requirements
 - Windows 10/11
-- .NET 8.0 SDK
+- .NET 10.0 SDK
 
 ## Build & Run
 
