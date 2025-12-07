@@ -9,7 +9,7 @@
   <Identity
     Name="BipinPaul.ScreenShift"
     Publisher="CN=Bipin Paul"
-    Version="0.0.26.0"
+    Version="0.0.28.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
@@ -37,10 +37,11 @@
         BackgroundColor="#0a0e12"
         Square150x150Logo="Images\Square150x150Logo.png"
         Square44x44Logo="Images\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" ShortName="ScreenShift">
+        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" ShortName="ScreenShift" Square71x71Logo="Images\SmallTile.png" Square310x310Logo="Images\LargeTile.png">
           <uap:ShowNameOnTiles>
             <uap:ShowOn Tile="square150x150Logo"/>
             <uap:ShowOn Tile="wide310x150Logo"/>
+            <uap:ShowOn Tile="square310x310Logo"/>
           </uap:ShowNameOnTiles>
         </uap:DefaultTile>
         <uap:SplashScreen Image="Images\SplashScreen.png" BackgroundColor="#0a0e12"/>
