@@ -1,34 +1,35 @@
-# Monitor Switcher
+# ScreenShift
 
-A simple Windows 11 app to quickly change your primary monitor in a multi-monitor setup.
+A simple Windows 11 app to quickly change your primary monitor from the system tray.
 
 ## Features
-- Lists all connected monitors with resolution and refresh rate
+- System tray app - always accessible
+- Lists all connected monitors with resolution and orientation
 - One-click to set any monitor as primary
-- Modern Windows 11 dark theme UI
+- Light/Dark theme support (follows system or manual)
+- Start with Windows option
+- Modern Windows 11 style UI
 
 ## Requirements
-- Windows 10/11
-- .NET 10.0 SDK
+- Windows 10/11 (version 1809+)
+- .NET 9.0
 
-## Build & Run
+## Installation
+
+Install from the [Microsoft Store](https://apps.microsoft.com/detail/9N0JFMK5BGPG) or build from source.
+
+## Build from Source
 
 ```bash
-cd MonitorSwitcher
-dotnet build
-dotnet run
-```
-
-Or build a standalone executable:
-```bash
-dotnet publish -c Release -r win-x64 --self-contained
+dotnet build src/ScreenShift/ScreenShift.csproj
+dotnet run --project src/ScreenShift/ScreenShift.csproj
 ```
 
 ## Usage
-1. Launch the app
-2. Click on any monitor card to set it as the primary display
-3. The change takes effect immediately
+1. Click the tray icon to open the popup
+2. Click on any monitor to set it as primary
+3. Use the Theme button to switch themes
+4. Enable "Start with Windows" to auto-launch on login
 
-## Notes
-- **Monitor Numbering**: Windows typically assigns **#1** to the internal display (laptop screen), regardless of connection order. This app follows the same behavior to match Windows Settings.
-
+## License
+MIT
