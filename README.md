@@ -2,6 +2,12 @@
 
 A simple Windows 11 app to quickly change your primary monitor from the system tray.
 
+## Screenshot
+
+<p align="center">
+  <img src="screenshots/screenshot_1.png" alt="ScreenShift">
+</p>
+
 ## Features
 - System tray app - always accessible
 - Lists all connected monitors with resolution and orientation
