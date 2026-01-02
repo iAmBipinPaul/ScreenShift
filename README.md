@@ -12,7 +12,7 @@ A simple Windows 11 app to quickly change your primary monitor from the system t
 
 ## Requirements
 - Windows 10/11 (version 1809+)
-- .NET 9.0
+- .NET 10.0
 
 ## Installation
 
