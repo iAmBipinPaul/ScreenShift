@@ -15,9 +15,9 @@
     <Authors>Bipin Paul</Authors>
     <Description>Quickly switch your primary monitor from the system tray</Description>
     <Copyright>© 2025 Bipin Paul. All rights reserved.</Copyright>
-    <Version>0.0.1</Version>
-    <FileVersion>0.0.1.0</FileVersion>
-    <AssemblyVersion>0.0.1.0</AssemblyVersion>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
     
     <!-- App Icon -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>

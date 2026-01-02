@@ -179,38 +179,50 @@
                 
                 <!-- Footer -->
                 <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="0,0,12,12" Padding="12,8">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <!-- Startup Option -->
+                        <CheckBox x:Name="StartupCheckBox"
+                                  Content="Start with Windows"
+                                  Foreground="{DynamicResource TextPrimaryBrush}"
+                                  FontSize="12"
+                                  Margin="0,0,0,8"
+                                  Checked="StartupCheckBox_Changed"
+                                  Unchecked="StartupCheckBox_Changed"/>
                         
-                        <Button Grid.Column="0"
-                                Content="⟳ Refresh" 
-                                Style="{StaticResource MonitorButtonStyle}"
-                                Background="Transparent"
-                                Foreground="{DynamicResource TextPrimaryBrush}"
-                                FontSize="12"
-                                Click="RefreshButton_Click"/>
-                                
-                        <StackPanel Grid.Column="2" Orientation="Horizontal">
-                            <Button Content="⚙ Theme" 
-                                    Style="{StaticResource MonitorButtonStyle}"
-                                    Background="Transparent"
-                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                    FontSize="12"
-                                    Margin="0,0,8,0"
-                                    Click="ThemeButton_Click"/>
+                        <!-- Buttons Row -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
                             
-                            <Button Content="✕ Exit" 
+                            <Button Grid.Column="0"
+                                    Content="⟳ Refresh" 
                                     Style="{StaticResource MonitorButtonStyle}"
                                     Background="Transparent"
                                     Foreground="{DynamicResource TextPrimaryBrush}"
                                     FontSize="12"
-                                    Click="ExitButton_Click"/>
-                        </StackPanel>
-                    </Grid>
+                                    Click="RefreshButton_Click"/>
+                                    
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button Content="⚙ Theme" 
+                                        Style="{StaticResource MonitorButtonStyle}"
+                                        Background="Transparent"
+                                        Foreground="{DynamicResource TextPrimaryBrush}"
+                                        FontSize="12"
+                                        Margin="0,0,8,0"
+                                        Click="ThemeButton_Click"/>
+                                
+                                <Button Content="✕ Exit" 
+                                        Style="{StaticResource MonitorButtonStyle}"
+                                        Background="Transparent"
+                                        Foreground="{DynamicResource TextPrimaryBrush}"
+                                        FontSize="12"
+                                        Click="ExitButton_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
                 </Border>
             </StackPanel>
             

@@ -9,6 +9,7 @@ using System.Windows.Input;
 using System.Threading.Tasks;
 using System.Drawing;
 using System.Windows.Forms;
+using Windows.ApplicationModel;
 
 namespace ScreenShift
 {
@@ -121,6 +122,9 @@ namespace ScreenShift
 
             // 3. Load data (refresh in background)
             await LoadMonitorsAsync();
+            
+            // 4. Update startup checkbox state
+            await UpdateStartupCheckBoxAsync();
         }
 
         private void CenterWindowOnCursor()
@@ -465,7 +469,109 @@ namespace ScreenShift
                 contextMenu.Items.Add(menuItem);
             }
 
+            // Add separator and startup option
+            contextMenu.Items.Add(new Separator());
+            
+            var startupItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Start with Windows",
+                IsCheckable = true,
+                IsChecked = false
+            };
+            
+            if (System.Windows.Application.Current.TryFindResource("ModernMenuItemStyle") is Style startupStyle)
+            {
+                startupItem.Style = startupStyle;
+            }
+            
+            // Check current startup state
+            _ = UpdateStartupMenuItemAsync(startupItem);
+            
+            startupItem.Click += StartupMenuItem_Click;
+            contextMenu.Items.Add(startupItem);
+
             return contextMenu;
+        }
+
+        private async Task UpdateStartupMenuItemAsync(System.Windows.Controls.MenuItem menuItem)
+        {
+            try
+            {
+                var startupTask = await StartupTask.GetAsync("ScreenShiftStartup");
+                menuItem.IsChecked = startupTask.State == StartupTaskState.Enabled;
+            }
+            catch
+            {
+                // Not running as packaged app, hide the option
+                menuItem.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private async Task UpdateStartupCheckBoxAsync()
+        {
+            try
+            {
+                var startupTask = await StartupTask.GetAsync("ScreenShiftStartup");
+                StartupCheckBox.IsChecked = startupTask.State == StartupTaskState.Enabled;
+                StartupCheckBox.Visibility = Visibility.Visible;
+            }
+            catch
+            {
+                // Not running as packaged app, hide the option
+                StartupCheckBox.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private async void StartupCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.CheckBox checkBox)
+            {
+                try
+                {
+                    var startupTask = await StartupTask.GetAsync("ScreenShiftStartup");
+                    
+                    if (checkBox.IsChecked == true && startupTask.State != StartupTaskState.Enabled)
+                    {
+                        var state = await startupTask.RequestEnableAsync();
+                        checkBox.IsChecked = state == StartupTaskState.Enabled;
+                    }
+                    else if (checkBox.IsChecked == false && startupTask.State == StartupTaskState.Enabled)
+                    {
+                        startupTask.Disable();
+                    }
+                }
+                catch
+                {
+                    checkBox.IsChecked = false;
+                }
+            }
+        }
+
+        private async void StartupMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.MenuItem menuItem)
+            {
+                try
+                {
+                    var startupTask = await StartupTask.GetAsync("ScreenShiftStartup");
+                    
+                    if (startupTask.State == StartupTaskState.Enabled)
+                    {
+                        startupTask.Disable();
+                        menuItem.IsChecked = false;
+                    }
+                    else
+                    {
+                        var state = await startupTask.RequestEnableAsync();
+                        menuItem.IsChecked = state == StartupTaskState.Enabled;
+                    }
+                }
+                catch
+                {
+                    // Not running as packaged app
+                    menuItem.IsChecked = false;
+                }
+            }
         }
 
         private void ThemeMenuItem_Click(object sender, RoutedEventArgs e)
