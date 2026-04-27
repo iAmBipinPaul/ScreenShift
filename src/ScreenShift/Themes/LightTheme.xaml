@@ -2,22 +2,28 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- AditiKraft Brand Colors - Light Theme -->
     
-    <!-- Backgrounds - Light versions -->
-    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#f5f7fa"/>
+    <!-- Backgrounds -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F4F6F4"/>
     <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#e8ecf0"/>
-    <SolidColorBrush x:Key="SurfacePressedBrush" Color="#d8dfe6"/>
-    
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#EEF3EF"/>
+    <SolidColorBrush x:Key="SurfacePressedBrush" Color="#E4ECE8"/>
+     
     <!-- Border -->
-    <SolidColorBrush x:Key="BorderBrush" Color="#d0d7de"/>
-    
-    <!-- Text - Dark for light backgrounds -->
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0a0e12"/>
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5c6875"/>
-    
-    <!-- Accent - AditiKraft Primary Green (same across themes) -->
-    <SolidColorBrush x:Key="AccentBrush" Color="#0CAC5C"/>
-    
+    <SolidColorBrush x:Key="BorderBrush" Color="#C7D8D1"/>
+     
+    <!-- Text -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1E2B29"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#536660"/>
+    <SolidColorBrush x:Key="DisabledTextBrush" Color="#8EA19B"/>
+     
+    <!-- Accent - Aditi Kraft Heritage Teal -->
+    <SolidColorBrush x:Key="AccentBrush" Color="#0B6B61"/>
+    <SolidColorBrush x:Key="AccentTextBrush" Color="#0B6B61"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#08564F"/>
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#063F3B"/>
+    <SolidColorBrush x:Key="GoldAccentBrush" Color="#9A6412"/>
+    <SolidColorBrush x:Key="StatusPillBackgroundBrush" Color="#EEF3EF"/>
+     
     <!-- Monitor Icons -->
-    <SolidColorBrush x:Key="MonitorIconBackgroundBrush" Color="#e0e5eb"/>
+    <SolidColorBrush x:Key="MonitorIconBackgroundBrush" Color="#EEF3EF"/>
 </ResourceDictionary>

@@ -3,21 +3,27 @@
     <!-- AditiKraft Brand Colors - Dark Theme -->
     
     <!-- Backgrounds -->
-    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0a0e12"/>
-    <SolidColorBrush x:Key="SurfaceBrush" Color="#1e2433"/>
-    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#252b3b"/>
-    <SolidColorBrush x:Key="SurfacePressedBrush" Color="#2a3344"/>
-    
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#071A1B"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#102A2C"/>
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#163134"/>
+    <SolidColorBrush x:Key="SurfacePressedBrush" Color="#1B3A3D"/>
+     
     <!-- Border -->
-    <SolidColorBrush x:Key="BorderBrush" Color="#2a3344"/>
-    
+    <SolidColorBrush x:Key="BorderBrush" Color="#244044"/>
+     
     <!-- Text -->
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#f5f7fa"/>
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#b8c1cc"/>
-    
-    <!-- Accent - AditiKraft Primary Green -->
-    <SolidColorBrush x:Key="AccentBrush" Color="#0CAC5C"/>
-    
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E6ECE9"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9CAEA8"/>
+    <SolidColorBrush x:Key="DisabledTextBrush" Color="#58706B"/>
+     
+    <!-- Accent - Aditi Kraft Heritage Teal -->
+    <SolidColorBrush x:Key="AccentBrush" Color="#0B6B61"/>
+    <SolidColorBrush x:Key="AccentTextBrush" Color="#3FCDB8"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#08564F"/>
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#063F3B"/>
+    <SolidColorBrush x:Key="GoldAccentBrush" Color="#E3B341"/>
+    <SolidColorBrush x:Key="StatusPillBackgroundBrush" Color="#071A1B"/>
+     
     <!-- Monitor Icons -->
-    <SolidColorBrush x:Key="MonitorIconBackgroundBrush" Color="#141922"/>
+    <SolidColorBrush x:Key="MonitorIconBackgroundBrush" Color="#0D2224"/>
 </ResourceDictionary>

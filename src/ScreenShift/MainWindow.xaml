@@ -19,30 +19,66 @@
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
         <!-- Modern Windows 11 style button -->
         <Style x:Key="MonitorButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#2D2D2D"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border" 
                                 Background="{TemplateBinding Background}" 
                                 CornerRadius="8"
-                                Padding="8">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                                Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#3D3D3D"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#4D4D4D"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfacePressedBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryActionButtonStyle" TargetType="Button" BasedOn="{StaticResource MonitorButtonStyle}">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="UtilityButtonStyle" TargetType="Button" BasedOn="{StaticResource MonitorButtonStyle}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="8,6"/>
         </Style>
         
         <!-- Primary monitor style -->
@@ -64,29 +100,80 @@
         <Grid>
             <StackPanel>
                 <!-- Header -->
-                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12,12,0,0" Padding="16,12">
+                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12,12,0,0" Padding="14,12">
                     <Grid>
-                        <TextBlock Text="ScreenShift" 
-                                   FontSize="14" 
-                                   FontWeight="SemiBold" 
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock x:Name="StatusText" 
-                                   Text="Click a monitor to set as primary" 
-                                   FontSize="11" 
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   HorizontalAlignment="Right"/>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="30"
+                                    Height="30"
+                                    CornerRadius="9"
+                                    Background="{DynamicResource AccentBrush}"
+                                    Margin="0,0,10,0">
+                                <TextBlock Text="&#x25A3;"
+                                           FontSize="15"
+                                           Foreground="White"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="ScreenShift"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Display control"
+                                           FontSize="10"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border Grid.Column="1"
+                                Background="{DynamicResource StatusPillBackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="999"
+                                Padding="9,4"
+                                VerticalAlignment="Center">
+                            <TextBlock x:Name="StatusText"
+                                       Text="Ready"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       MaxWidth="130"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Border>
                     </Grid>
                 </Border>
-                
+                 
                 <!-- Visual Monitor Layout -->
-                <Border Background="{DynamicResource AppBackgroundBrush}" Padding="16">
-                    <Canvas x:Name="MonitorCanvas" Width="300" Height="120" ClipToBounds="True">
-                        <!-- Monitor items will be added programmatically -->
-                    </Canvas>
+                <Border Background="{DynamicResource AppBackgroundBrush}" Padding="12">
+                    <Border Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Padding="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0"
+                                       Text="LAYOUT"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Margin="0,0,0,8"/>
+                            <Canvas Grid.Row="1" x:Name="MonitorCanvas" Width="276" Height="100" ClipToBounds="True">
+                                <!-- Monitor items will be added programmatically -->
+                            </Canvas>
+                        </Grid>
+                    </Border>
                 </Border>
-                
+                 
                 <!-- Monitor List -->
-                <ItemsControl x:Name="MonitorList" Margin="8,0,8,8">
+                <ItemsControl x:Name="MonitorList" Margin="12,0,12,10">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Button Style="{StaticResource MonitorButtonStyle}"
@@ -97,7 +184,7 @@
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="border" 
                                                 Background="{DynamicResource SurfaceBrush}" 
-                                                CornerRadius="8"
+                                                CornerRadius="10"
                                                 Padding="12,10"
                                                 Cursor="Hand">
                                             <Grid>
@@ -108,7 +195,8 @@
                                                 </Grid.ColumnDefinitions>
                                                 
                                                 <!-- Display Number -->
-                                                <Border Grid.Column="0" 
+                                                <Border x:Name="PrimaryNumberBadge"
+                                                        Grid.Column="0" 
                                                         Width="28" Height="28" 
                                                         CornerRadius="6"
                                                         Background="{DynamicResource AccentBrush}"
@@ -120,7 +208,8 @@
                                                                HorizontalAlignment="Center" 
                                                                VerticalAlignment="Center"/>
                                                 </Border>
-                                                <Border Grid.Column="0" 
+                                                <Border x:Name="SecondaryNumberBadge"
+                                                        Grid.Column="0" 
                                                         Width="28" Height="28" 
                                                         CornerRadius="6"
                                                         Background="{DynamicResource MonitorIconBackgroundBrush}"
@@ -128,22 +217,23 @@
                                                     <TextBlock Text="{Binding DisplayNumber}" 
                                                                FontWeight="Bold" 
                                                                FontSize="14"
-                                                               Foreground="White"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
                                                                HorizontalAlignment="Center" 
                                                                VerticalAlignment="Center"/>
                                                 </Border>
                                                 
                                                 <!-- Monitor Info -->
                                                 <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding DeviceName}" 
+                                                    <TextBlock x:Name="MonitorNameText"
+                                                               Text="{Binding DeviceName}" 
                                                                FontSize="13" 
                                                                FontWeight="Medium"
                                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                    <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}">
+                                                    <TextBlock x:Name="MonitorMetaText" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}">
                                                         <Run Text="{Binding Width, Mode=OneWay}"/>
-                                                        <Run Text="×"/>
+                                                        <Run Text="&#x00D7;"/>
                                                         <Run Text="{Binding Height, Mode=OneWay}"/>
-                                                        <Run Text="•"/>
+                                                        <Run Text="&#x2022;"/>
                                                         <Run Text="{Binding Orientation, Mode=OneWay}"/>
                                                     </TextBlock>
                                                 </StackPanel>
@@ -153,7 +243,7 @@
                                                     <TextBlock Text="PRIMARY" 
                                                                FontSize="10" 
                                                                FontWeight="Bold"
-                                                               Foreground="{DynamicResource AccentBrush}"
+                                                               Foreground="{DynamicResource AccentTextBrush}"
                                                                Visibility="{Binding IsPrimary, Converter={StaticResource BoolToVisibility}}"/>
                                                     <TextBlock Text="DISABLED" 
                                                                FontSize="10" 
@@ -167,7 +257,11 @@
                                                 <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
                                             </Trigger>
                                             <DataTrigger Binding="{Binding IsEnabled}" Value="False">
-                                                <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                                                <Setter TargetName="border" Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+                                                <Setter TargetName="SecondaryNumberBadge" Property="Opacity" Value="0.45"/>
+                                                <Setter TargetName="MonitorNameText" Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+                                                <Setter TargetName="MonitorNameText" Property="Opacity" Value="0.75"/>
+                                                <Setter TargetName="MonitorMetaText" Property="Opacity" Value="0.6"/>
                                             </DataTrigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -192,11 +286,7 @@
                         <!-- Primary Display Action -->
                         <Button x:Name="DisplayToggleButton"
                                 Content="Enable primary only"
-                                Style="{StaticResource MonitorButtonStyle}"
-                                Background="{DynamicResource AccentBrush}"
-                                Foreground="White"
-                                FontSize="12"
-                                FontWeight="SemiBold"
+                                Style="{StaticResource PrimaryActionButtonStyle}"
                                 Margin="0,0,0,8"
                                 HorizontalContentAlignment="Center"
                                 Click="DisplayToggleButton_Click"/>
@@ -204,48 +294,39 @@
                         <!-- Utility Buttons Row -->
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                                    
-                            <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                <Button Content="⟳ Refresh" 
-                                        Style="{StaticResource MonitorButtonStyle}"
-                                        Background="Transparent"
-                                        Foreground="{DynamicResource TextPrimaryBrush}"
-                                        FontSize="12"
-                                        Click="RefreshButton_Click"/>
-                            </StackPanel>
-                                     
-                            <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                <Button Content="⚙ Theme" 
-                                        Style="{StaticResource MonitorButtonStyle}"
-                                        Background="Transparent"
-                                        Foreground="{DynamicResource TextPrimaryBrush}"
-                                        FontSize="12"
-                                        Margin="0,0,8,0"
-                                        Click="ThemeButton_Click"/>
-                                
-                                <Button Content="✕ Exit" 
-                                        Style="{StaticResource MonitorButtonStyle}"
-                                        Background="Transparent"
-                                        Foreground="{DynamicResource TextPrimaryBrush}"
-                                        FontSize="12"
-                                        Click="ExitButton_Click"/>
-                            </StackPanel>
+
+                            <Button Grid.Column="0"
+                                    Content="&#x27F3; Refresh"
+                                    Style="{StaticResource UtilityButtonStyle}"
+                                    Margin="0,0,6,0"
+                                    Click="RefreshButton_Click"/>
+
+                            <Button Grid.Column="1"
+                                    Content="&#x2699; Theme"
+                                    Style="{StaticResource UtilityButtonStyle}"
+                                    Margin="0,0,6,0"
+                                    Click="ThemeButton_Click"/>
+
+                            <Button Grid.Column="2"
+                                    Content="&#x2715; Exit"
+                                    Style="{StaticResource UtilityButtonStyle}"
+                                    Click="ExitButton_Click"/>
                         </Grid>
                     </StackPanel>
                 </Border>
             </StackPanel>
             
             <!-- Loading Overlay -->
-            <Grid x:Name="LoadingOverlay" Background="{DynamicResource AppBackgroundBrush}" Visibility="Collapsed">
+            <Border x:Name="LoadingOverlay" Background="{DynamicResource AppBackgroundBrush}" CornerRadius="12" Visibility="Collapsed">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <ProgressBar IsIndeterminate="True" Width="150" Height="4" Background="{DynamicResource SurfaceBrush}" BorderThickness="0" Foreground="{DynamicResource AccentBrush}"/>
                     <TextBlock Text="Loading monitors..." Margin="0,12,0,0" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
-            </Grid>
+            </Border>
         </Grid>
     </Border>
 </Window>
