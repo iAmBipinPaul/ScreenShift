@@ -39,5 +39,13 @@ dotnet run --project src/ScreenShift/ScreenShift.csproj
 4. Use the Theme button to switch themes
 5. Enable "Start with Windows" to auto-launch on login
 
+## Release Notes
+
+### 1.2.0
+- Added a primary-only display toggle that disables non-primary monitors while preserving the current primary monitor.
+- Added scoped restore behavior so "Enable all" only re-enables monitors disabled by ScreenShift, including after app restart.
+- Refreshed the compact popup UI with the AditiKraft color palette, improved monitor cards, and a full-width primary action.
+- Improved display-change handling so off-screen windows and taskbar state recover after switching to primary-only mode.
+
 ## License
 MIT
