@@ -18,6 +18,7 @@ namespace ScreenShift
         public ObservableCollection<MonitorInfo> Monitors { get; set; } = new();
         private NotifyIcon? _trayIcon;
         private string _currentTheme = "System";
+        private bool _isDisplayOperationInProgress;
 
         public MainWindow()
         {
@@ -183,6 +184,7 @@ namespace ScreenShift
             MonitorList.ItemsSource = Monitors;
             
             StatusText.Text = $"{Monitors.Count(m => m.IsEnabled)} active";
+            UpdateDisplayToggleButton();
             
             UpdateVisualLayout();
             
@@ -409,19 +411,79 @@ namespace ScreenShift
                 return;
             }
 
-            StatusText.Text = "Switching...";
-            
-            bool success = await Task.Run(() => DisplayHelper.SetPrimaryDisplay(monitor.DeviceKey));
-            
-            if (success)
+            await RunDisplayOperationAsync("Switching...", "Done!", () => DisplayHelper.SetPrimaryDisplay(monitor.DeviceKey));
+        }
+
+        private async void DisplayToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            int activeMonitorCount = Monitors.Count(m => m.IsEnabled);
+
+            if (ShouldShowEnableAll(activeMonitorCount))
             {
-                StatusText.Text = "Done!";
-                await Task.Delay(500);
-                await LoadMonitorsAsync();
+                await RunDisplayOperationAsync("Enabling...", "Enabled", DisplayHelper.EnableAllDisplays);
+                return;
             }
-            else
+
+            if (activeMonitorCount <= 1)
             {
-                StatusText.Text = "Failed";
+                StatusText.Text = "Already primary only";
+                return;
+            }
+
+            if (!Monitors.Any(m => m.IsEnabled && m.IsPrimary))
+            {
+                StatusText.Text = "No primary found";
+                return;
+            }
+
+            await RunDisplayOperationAsync("Disabling...", "Primary only", DisplayHelper.DisableNonPrimaryDisplays);
+        }
+
+        private void UpdateDisplayToggleButton()
+        {
+            int activeMonitorCount = Monitors.Count(m => m.IsEnabled);
+            bool showEnableAll = ShouldShowEnableAll(activeMonitorCount);
+
+            DisplayToggleButton.Content = showEnableAll ? "Enable all" : "Enable primary only";
+            DisplayToggleButton.ToolTip = showEnableAll
+                ? "Enable monitors disabled by ScreenShift"
+                : "Disable other monitors and keep the primary monitor active";
+        }
+
+        private static bool ShouldShowEnableAll(int activeMonitorCount)
+        {
+            return activeMonitorCount <= 1 && DisplayHelper.HasDisplaysDisabledByApp();
+        }
+
+        private async Task RunDisplayOperationAsync(string inProgressStatus, string successStatus, Func<bool> operation)
+        {
+            if (_isDisplayOperationInProgress)
+            {
+                StatusText.Text = "Busy...";
+                return;
+            }
+
+            _isDisplayOperationInProgress = true;
+            StatusText.Text = inProgressStatus;
+
+            try
+            {
+                bool success = await Task.Run(operation);
+
+                if (success)
+                {
+                    StatusText.Text = successStatus;
+                    await Task.Delay(500);
+                    await LoadMonitorsAsync();
+                }
+                else
+                {
+                    StatusText.Text = "Failed";
+                }
+            }
+            finally
+            {
+                _isDisplayOperationInProgress = false;
             }
         }
 

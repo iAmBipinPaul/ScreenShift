@@ -1,8 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using DrawingRectangle = System.Drawing.Rectangle;
 using Windows.Devices.Display;
 using Windows.Devices.Enumeration;
 
@@ -39,6 +44,47 @@ namespace ScreenShift
         [DllImport("user32.dll")]
         public static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
 
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsZoomed(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetShellWindow();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint msg, UIntPtr wParam, IntPtr lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref RECT pvParam, uint fWinIni);
+
         #endregion
 
         #region Constants
@@ -49,9 +95,22 @@ namespace ScreenShift
         private const uint SDC_USE_SUPPLIED_DISPLAY_CONFIG = 0x00000020;
         private const uint SDC_SAVE_TO_DATABASE = 0x00000200;
         private const uint SDC_ALLOW_CHANGES = 0x00000400;
+        private const uint DISPLAYCONFIG_PATH_ACTIVE = 0x00000001;
+        private const uint DISPLAYCONFIG_PATH_MODE_IDX_INVALID = 0xFFFFFFFF;
         private const uint DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1;
         private const uint DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME = 2;
         private const int EDD_GET_DEVICE_INTERFACE_NAME = 0x00000001;
+        private const uint GW_OWNER = 4;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const int SW_MAXIMIZE = 3;
+        private const int SW_RESTORE = 9;
+        private const uint HWND_BROADCAST = 0xFFFF;
+        private const uint WM_DISPLAYCHANGE = 0x007E;
+        private const uint WM_SETTINGCHANGE = 0x001A;
+        private const uint SMTO_ABORTIFHUNG = 0x0002;
+        private const uint SPI_GETWORKAREA = 0x0030;
 
         #endregion
 
@@ -180,6 +239,23 @@ namespace ScreenShift
         }
 
         [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+
+            public int Width => Right - Left;
+            public int Height => Bottom - Top;
+
+            public DrawingRectangle ToRectangle()
+            {
+                return DrawingRectangle.FromLTRB(Left, Top, Right, Bottom);
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
         private struct DISPLAYCONFIG_DEVICE_INFO_HEADER
         {
             public uint type;
@@ -211,7 +287,43 @@ namespace ScreenShift
             public string monitorDevicePath;
         }
 
+        private sealed class DisplayConfigurationSnapshot
+        {
+            public DisplayConfigurationSnapshot(DISPLAYCONFIG_PATH_INFO[] paths, DISPLAYCONFIG_MODE_INFO[] modes)
+            {
+                Paths = paths;
+                Modes = modes;
+            }
+
+            public DISPLAYCONFIG_PATH_INFO[] Paths { get; }
+            public DISPLAYCONFIG_MODE_INFO[] Modes { get; }
+
+            public DisplayConfigurationSnapshot Clone()
+            {
+                return new DisplayConfigurationSnapshot(
+                    (DISPLAYCONFIG_PATH_INFO[])Paths.Clone(),
+                    (DISPLAYCONFIG_MODE_INFO[])Modes.Clone());
+            }
+        }
+
+        private sealed class PersistedDisplayConfigurationSnapshot
+        {
+            public int PathSize { get; set; }
+            public int PathCount { get; set; }
+            public string Paths { get; set; } = "";
+            public int ModeSize { get; set; }
+            public int ModeCount { get; set; }
+            public string Modes { get; set; } = "";
+        }
+
         #endregion
+
+        private static readonly object _appDisabledConfigurationLock = new();
+        private static DisplayConfigurationSnapshot? _appDisabledConfiguration;
+        private static readonly string AppDisabledConfigurationFilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ScreenShift",
+            "app-disabled-displays.json");
 
         #region Public Methods
 
@@ -369,22 +481,14 @@ namespace ScreenShift
         {
             try
             {
-                uint numPaths = 0, numModes = 0;
-                if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out numPaths, out numModes) != 0)
-                    return false;
-
-                var paths = new DISPLAYCONFIG_PATH_INFO[numPaths];
-                var modes = new DISPLAYCONFIG_MODE_INFO[numModes];
-
-                uint pathCount = numPaths, modeCount = numModes;
-                if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) != 0)
+                if (!TryQueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, out var paths, out var modes))
                     return false;
 
                 // Find paths for the new primary and current primary
                 int newPrimaryPathIdx = -1;
-                int currentPrimaryPathIdx = -1;
+                int currentPrimaryPathIdx = FindPrimaryPathIndex(paths, modes);
                 
-                for (int i = 0; i < pathCount; i++)
+                for (int i = 0; i < paths.Length; i++)
                 {
                     var sourceName = new DISPLAYCONFIG_SOURCE_DEVICE_NAME();
                     sourceName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
@@ -396,20 +500,6 @@ namespace ScreenShift
                     {
                         if (sourceName.viewGdiDeviceName == gdiDeviceName)
                             newPrimaryPathIdx = i;
-                        
-                        // Check if this is current primary (position 0,0)
-                        if (paths[i].sourceInfo.modeInfoIdx < modeCount)
-                        {
-                            var modeInfo = modes[paths[i].sourceInfo.modeInfoIdx];
-                            if (modeInfo.infoType == 1) // Source mode
-                            {
-                                if (modeInfo.info.sourceMode.position.x == 0 && 
-                                    modeInfo.info.sourceMode.position.y == 0)
-                                {
-                                    currentPrimaryPathIdx = i;
-                                }
-                            }
-                        }
                     }
                 }
 
@@ -418,16 +508,15 @@ namespace ScreenShift
 
                 // Get positions
                 var newPrimaryModeIdx = paths[newPrimaryPathIdx].sourceInfo.modeInfoIdx;
-                var currentPrimaryModeIdx = currentPrimaryPathIdx >= 0 ? paths[currentPrimaryPathIdx].sourceInfo.modeInfoIdx : uint.MaxValue;
 
-                if (newPrimaryModeIdx >= modeCount)
+                if (newPrimaryModeIdx >= modes.Length)
                     return false;
 
                 int newPrimaryX = modes[newPrimaryModeIdx].info.sourceMode.position.x;
                 int newPrimaryY = modes[newPrimaryModeIdx].info.sourceMode.position.y;
 
                 // Shift all displays so new primary is at (0,0)
-                for (int i = 0; i < modeCount; i++)
+                for (int i = 0; i < modes.Length; i++)
                 {
                     if (modes[i].infoType == 1) // Source mode
                     {
@@ -438,7 +527,7 @@ namespace ScreenShift
 
                 // Apply configuration
                 uint flags = SDC_APPLY | SDC_USE_SUPPLIED_DISPLAY_CONFIG | SDC_SAVE_TO_DATABASE | SDC_ALLOW_CHANGES;
-                int result = SetDisplayConfig(pathCount, paths, modeCount, modes, flags);
+                int result = SetDisplayConfig((uint)paths.Length, paths, (uint)modes.Length, modes, flags);
                 
                 return result == 0;
             }
@@ -447,10 +536,450 @@ namespace ScreenShift
                 return false;
             }
         }
-        
+
+        /// <summary>
+        /// Disables every active display except the current primary display.
+        /// </summary>
+        public static bool DisableNonPrimaryDisplays()
+        {
+            try
+            {
+                if (!TryQueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, out var paths, out var modes))
+                    return false;
+
+                if (paths.Length <= 1)
+                    return true;
+
+                int primaryPathIndex = FindPrimaryPathIndex(paths, modes);
+                if (primaryPathIndex < 0)
+                    return false;
+
+                var primaryPath = paths[primaryPathIndex];
+                primaryPath.flags |= DISPLAYCONFIG_PATH_ACTIVE;
+
+                if (!TryCreateSinglePathConfiguration(primaryPath, modes, out var primaryOnlyPaths, out var primaryOnlyModes))
+                    return false;
+
+                uint primaryModeIndex = primaryOnlyPaths[0].sourceInfo.modeInfoIdx;
+                if (primaryModeIndex != DISPLAYCONFIG_PATH_MODE_IDX_INVALID &&
+                    primaryModeIndex < primaryOnlyModes.Length &&
+                    primaryOnlyModes[primaryModeIndex].infoType == 1)
+                {
+                    primaryOnlyModes[primaryModeIndex].info.sourceMode.position.x = 0;
+                    primaryOnlyModes[primaryModeIndex].info.sourceMode.position.y = 0;
+                }
+                else
+                {
+                    return false;
+                }
+
+                uint flags = SDC_APPLY | SDC_USE_SUPPLIED_DISPLAY_CONFIG | SDC_ALLOW_CHANGES;
+                int result = SetDisplayConfig((uint)primaryOnlyPaths.Length, primaryOnlyPaths, (uint)primaryOnlyModes.Length, primaryOnlyModes, flags);
+
+                if (result != 0)
+                    return false;
+
+                RefreshShellAfterDisplayChange();
+                MoveOffscreenWindowsToPrimaryWorkArea();
+
+                lock (_appDisabledConfigurationLock)
+                {
+                    _appDisabledConfiguration = new DisplayConfigurationSnapshot(
+                        (DISPLAYCONFIG_PATH_INFO[])paths.Clone(),
+                        (DISPLAYCONFIG_MODE_INFO[])modes.Clone());
+                    SaveAppDisabledConfiguration(_appDisabledConfiguration);
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Enables only the displays disabled by the last primary-only action.
+        /// </summary>
+        public static bool EnableAllDisplays()
+        {
+            try
+            {
+                DisplayConfigurationSnapshot? snapshot;
+                lock (_appDisabledConfigurationLock)
+                {
+                    snapshot = GetAppDisabledConfigurationLocked()?.Clone();
+                }
+
+                if (snapshot == null || snapshot.Paths.Length <= 1)
+                    return false;
+
+                var paths = snapshot.Paths
+                    .Select(path =>
+                    {
+                        path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
+                        return path;
+                    })
+                    .ToArray();
+
+                uint flags = SDC_APPLY | SDC_USE_SUPPLIED_DISPLAY_CONFIG | SDC_ALLOW_CHANGES;
+                int result = SetDisplayConfig((uint)paths.Length, paths, (uint)snapshot.Modes.Length, snapshot.Modes, flags);
+                if (result != 0)
+                    return false;
+
+                ClearAppDisabledConfiguration();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool HasDisplaysDisabledByApp()
+        {
+            lock (_appDisabledConfigurationLock)
+            {
+                return GetAppDisabledConfigurationLocked()?.Paths.Length > 1;
+            }
+        }
+         
         #endregion
 
         #region Private Methods
+
+        private static bool TryQueryDisplayConfig(uint queryFlags, out DISPLAYCONFIG_PATH_INFO[] paths, out DISPLAYCONFIG_MODE_INFO[] modes)
+        {
+            paths = Array.Empty<DISPLAYCONFIG_PATH_INFO>();
+            modes = Array.Empty<DISPLAYCONFIG_MODE_INFO>();
+
+            uint numPaths = 0, numModes = 0;
+            if (GetDisplayConfigBufferSizes(queryFlags, out numPaths, out numModes) != 0)
+                return false;
+
+            if (numPaths == 0)
+                return false;
+
+            var pathArray = new DISPLAYCONFIG_PATH_INFO[numPaths];
+            var modeArray = new DISPLAYCONFIG_MODE_INFO[numModes];
+
+            uint pathCount = numPaths, modeCount = numModes;
+            if (QueryDisplayConfig(queryFlags, ref pathCount, pathArray, ref modeCount, modeArray, IntPtr.Zero) != 0)
+                return false;
+
+            paths = pathArray.Take((int)pathCount).ToArray();
+            modes = modeArray.Take((int)modeCount).ToArray();
+            return true;
+        }
+
+        private static int FindPrimaryPathIndex(DISPLAYCONFIG_PATH_INFO[] paths, DISPLAYCONFIG_MODE_INFO[] modes)
+        {
+            for (int i = 0; i < paths.Length; i++)
+            {
+                uint sourceModeIndex = paths[i].sourceInfo.modeInfoIdx;
+                if (sourceModeIndex >= modes.Length)
+                    continue;
+
+                var modeInfo = modes[sourceModeIndex];
+                if (modeInfo.infoType != 1)
+                    continue;
+
+                if (modeInfo.info.sourceMode.position.x == 0 && modeInfo.info.sourceMode.position.y == 0)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        private static bool TryCreateSinglePathConfiguration(
+            DISPLAYCONFIG_PATH_INFO path,
+            DISPLAYCONFIG_MODE_INFO[] modes,
+            out DISPLAYCONFIG_PATH_INFO[] paths,
+            out DISPLAYCONFIG_MODE_INFO[] compactModes)
+        {
+            paths = Array.Empty<DISPLAYCONFIG_PATH_INFO>();
+            compactModes = Array.Empty<DISPLAYCONFIG_MODE_INFO>();
+
+            var remappedModes = new List<DISPLAYCONFIG_MODE_INFO>();
+            var modeIndexMap = new Dictionary<uint, uint>();
+
+            if (!TryAddRemappedMode(path.sourceInfo.modeInfoIdx, modes, remappedModes, modeIndexMap, out uint sourceModeIndex))
+                return false;
+
+            if (!TryAddRemappedMode(path.targetInfo.modeInfoIdx, modes, remappedModes, modeIndexMap, out uint targetModeIndex))
+                return false;
+
+            path.sourceInfo.modeInfoIdx = sourceModeIndex;
+            path.targetInfo.modeInfoIdx = targetModeIndex;
+
+            paths = new[] { path };
+            compactModes = remappedModes.ToArray();
+            return true;
+        }
+
+        private static bool TryAddRemappedMode(
+            uint modeInfoIndex,
+            DISPLAYCONFIG_MODE_INFO[] sourceModes,
+            List<DISPLAYCONFIG_MODE_INFO> remappedModes,
+            Dictionary<uint, uint> modeIndexMap,
+            out uint remappedIndex)
+        {
+            remappedIndex = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
+
+            if (modeInfoIndex == DISPLAYCONFIG_PATH_MODE_IDX_INVALID)
+                return true;
+
+            if (modeInfoIndex >= sourceModes.Length)
+                return false;
+
+            if (modeIndexMap.TryGetValue(modeInfoIndex, out remappedIndex))
+                return true;
+
+            remappedIndex = (uint)remappedModes.Count;
+            remappedModes.Add(sourceModes[modeInfoIndex]);
+            modeIndexMap[modeInfoIndex] = remappedIndex;
+            return true;
+        }
+
+        private static void ClearAppDisabledConfiguration()
+        {
+            lock (_appDisabledConfigurationLock)
+            {
+                _appDisabledConfiguration = null;
+                if (File.Exists(AppDisabledConfigurationFilePath))
+                    File.Delete(AppDisabledConfigurationFilePath);
+            }
+        }
+
+        private static DisplayConfigurationSnapshot? GetAppDisabledConfigurationLocked()
+        {
+            if (_appDisabledConfiguration != null)
+                return _appDisabledConfiguration;
+
+            _appDisabledConfiguration = LoadAppDisabledConfiguration();
+            return _appDisabledConfiguration;
+        }
+
+        private static void SaveAppDisabledConfiguration(DisplayConfigurationSnapshot snapshot)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(AppDisabledConfigurationFilePath)!);
+
+            var persisted = new PersistedDisplayConfigurationSnapshot
+            {
+                PathSize = Marshal.SizeOf<DISPLAYCONFIG_PATH_INFO>(),
+                PathCount = snapshot.Paths.Length,
+                Paths = Convert.ToBase64String(StructArrayToBytes(snapshot.Paths)),
+                ModeSize = Marshal.SizeOf<DISPLAYCONFIG_MODE_INFO>(),
+                ModeCount = snapshot.Modes.Length,
+                Modes = Convert.ToBase64String(StructArrayToBytes(snapshot.Modes))
+            };
+
+            File.WriteAllText(AppDisabledConfigurationFilePath, JsonSerializer.Serialize(persisted));
+        }
+
+        private static DisplayConfigurationSnapshot? LoadAppDisabledConfiguration()
+        {
+            if (!File.Exists(AppDisabledConfigurationFilePath))
+                return null;
+
+            try
+            {
+                var persisted = JsonSerializer.Deserialize<PersistedDisplayConfigurationSnapshot>(
+                    File.ReadAllText(AppDisabledConfigurationFilePath));
+                if (persisted == null)
+                    return null;
+
+                int pathSize = Marshal.SizeOf<DISPLAYCONFIG_PATH_INFO>();
+                int modeSize = Marshal.SizeOf<DISPLAYCONFIG_MODE_INFO>();
+                if (persisted.PathSize != pathSize || persisted.ModeSize != modeSize)
+                    return null;
+
+                var pathBytes = Convert.FromBase64String(persisted.Paths);
+                var modeBytes = Convert.FromBase64String(persisted.Modes);
+                if (pathBytes.Length != persisted.PathCount * pathSize ||
+                    modeBytes.Length != persisted.ModeCount * modeSize)
+                {
+                    return null;
+                }
+
+                return new DisplayConfigurationSnapshot(
+                    BytesToStructArray<DISPLAYCONFIG_PATH_INFO>(pathBytes, persisted.PathCount),
+                    BytesToStructArray<DISPLAYCONFIG_MODE_INFO>(modeBytes, persisted.ModeCount));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static byte[] StructArrayToBytes<T>(T[] values) where T : struct
+        {
+            int size = Marshal.SizeOf<T>();
+            var bytes = new byte[values.Length * size];
+
+            for (int i = 0; i < values.Length; i++)
+            {
+                IntPtr buffer = Marshal.AllocHGlobal(size);
+                try
+                {
+                    Marshal.StructureToPtr(values[i], buffer, false);
+                    Marshal.Copy(buffer, bytes, i * size, size);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
+            }
+
+            return bytes;
+        }
+
+        private static T[] BytesToStructArray<T>(byte[] bytes, int count) where T : struct
+        {
+            int size = Marshal.SizeOf<T>();
+            var values = new T[count];
+            IntPtr buffer = Marshal.AllocHGlobal(size);
+
+            try
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    Marshal.Copy(bytes, i * size, buffer, size);
+                    values[i] = Marshal.PtrToStructure<T>(buffer);
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+
+            return values;
+        }
+
+        private static void RefreshShellAfterDisplayChange()
+        {
+            Thread.Sleep(500);
+            SendMessageTimeout(
+                new IntPtr(HWND_BROADCAST),
+                WM_DISPLAYCHANGE,
+                UIntPtr.Zero,
+                IntPtr.Zero,
+                SMTO_ABORTIFHUNG,
+                1000,
+                out _);
+            SendMessageTimeout(
+                new IntPtr(HWND_BROADCAST),
+                WM_SETTINGCHANGE,
+                UIntPtr.Zero,
+                IntPtr.Zero,
+                SMTO_ABORTIFHUNG,
+                1000,
+                out _);
+        }
+
+        private static void MoveOffscreenWindowsToPrimaryWorkArea()
+        {
+            if (!TryGetPrimaryWorkArea(out DrawingRectangle primaryWorkArea))
+                return;
+
+            if (primaryWorkArea.Width <= 0 || primaryWorkArea.Height <= 0)
+                return;
+
+            IntPtr shellWindow = GetShellWindow();
+
+            EnumWindows((hWnd, _) =>
+            {
+                if (ShouldSkipWindowForPostDisplayMove(hWnd, shellWindow))
+                    return true;
+
+                if (!GetWindowRect(hWnd, out RECT windowRect))
+                    return true;
+
+                DrawingRectangle windowBounds = windowRect.ToRectangle();
+                if (windowBounds.Width <= 0 || windowBounds.Height <= 0)
+                    return true;
+
+                int centerX = windowBounds.Left + (windowBounds.Width / 2);
+                int centerY = windowBounds.Top + (windowBounds.Height / 2);
+                if (primaryWorkArea.Contains(centerX, centerY))
+                    return true;
+
+                MoveWindowIntoWorkArea(hWnd, windowBounds, primaryWorkArea);
+                return true;
+            }, IntPtr.Zero);
+        }
+
+        private static bool TryGetPrimaryWorkArea(out DrawingRectangle workArea)
+        {
+            var rect = new RECT();
+            if (!SystemParametersInfo(SPI_GETWORKAREA, 0, ref rect, 0))
+            {
+                workArea = DrawingRectangle.Empty;
+                return false;
+            }
+
+            workArea = rect.ToRectangle();
+            return true;
+        }
+
+        private static bool ShouldSkipWindowForPostDisplayMove(IntPtr hWnd, IntPtr shellWindow)
+        {
+            if (hWnd == shellWindow || !IsWindowVisible(hWnd) || IsIconic(hWnd))
+                return true;
+
+            if (GetWindow(hWnd, GW_OWNER) != IntPtr.Zero)
+                return true;
+
+            GetWindowThreadProcessId(hWnd, out uint processId);
+            if (processId == Environment.ProcessId)
+                return true;
+
+            string className = GetWindowClassName(hWnd);
+            return className is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "Progman" or "WorkerW";
+        }
+
+        private static void MoveWindowIntoWorkArea(IntPtr hWnd, DrawingRectangle windowBounds, DrawingRectangle workArea)
+        {
+            bool wasMaximized = IsZoomed(hWnd);
+            if (wasMaximized)
+            {
+                ShowWindow(hWnd, SW_RESTORE);
+                if (!GetWindowRect(hWnd, out RECT restoredRect))
+                    return;
+
+                windowBounds = restoredRect.ToRectangle();
+            }
+
+            bool needsResize = windowBounds.Width > workArea.Width || windowBounds.Height > workArea.Height;
+            int width = needsResize ? Math.Min(windowBounds.Width, workArea.Width) : windowBounds.Width;
+            int height = needsResize ? Math.Min(windowBounds.Height, workArea.Height) : windowBounds.Height;
+            int x = Clamp(windowBounds.Left, workArea.Left, workArea.Right - width);
+            int y = Clamp(windowBounds.Top, workArea.Top, workArea.Bottom - height);
+
+            uint flags = SWP_NOZORDER | SWP_NOACTIVATE;
+            if (needsResize)
+                SetWindowPos(hWnd, IntPtr.Zero, x, y, width, height, flags);
+            else
+                SetWindowPos(hWnd, IntPtr.Zero, x, y, 0, 0, flags | SWP_NOSIZE);
+
+            if (wasMaximized)
+                ShowWindow(hWnd, SW_MAXIMIZE);
+        }
+
+        private static string GetWindowClassName(IntPtr hWnd)
+        {
+            var className = new StringBuilder(256);
+            int length = GetClassName(hWnd, className, className.Capacity);
+            return length > 0 ? className.ToString() : string.Empty;
+        }
+
+        private static int Clamp(int value, int min, int max)
+        {
+            if (max < min)
+                return min;
+
+            return Math.Min(Math.Max(value, min), max);
+        }
 
         private static async Task<List<(string name, uint targetId, uint physicalWidth, uint physicalHeight, string deviceId)>> GetWinRTMonitorsAsync()
         {

@@ -12,6 +12,7 @@ A simple Windows 11 app to quickly change your primary monitor from the system t
 - System tray app - always accessible
 - Lists all connected monitors with resolution and orientation
 - One-click to set any monitor as primary
+- One-click toggle to enable primary-only mode and re-enable only the monitors ScreenShift disabled
 - Light/Dark theme support (follows system or manual)
 - Start with Windows option
 - Modern Windows 11 style UI
@@ -34,8 +35,9 @@ dotnet run --project src/ScreenShift/ScreenShift.csproj
 ## Usage
 1. Click the tray icon to open the popup
 2. Click on any monitor to set it as primary
-3. Use the Theme button to switch themes
-4. Enable "Start with Windows" to auto-launch on login
+3. Use the "Enable primary only" / "Enable all" toggle to disable non-primary monitors or re-enable the monitors disabled by ScreenShift
+4. Use the Theme button to switch themes
+5. Enable "Start with Windows" to auto-launch on login
 
 ## License
 MIT
