@@ -19,6 +19,7 @@ namespace ScreenShift
         private NotifyIcon? _trayIcon;
         private string _currentTheme = "System";
         private bool _isDisplayOperationInProgress;
+        private bool _isContextMenuOpen = false;
 
         public MainWindow()
         {
@@ -254,8 +255,8 @@ namespace ScreenShift
             if (totalWidth == 0) totalWidth = 1920; 
             if (totalHeight == 0) totalHeight = 1080;
 
-            double canvasWidth = MonitorCanvas.Width;
-            double canvasHeight = MonitorCanvas.Height;
+            double canvasWidth = MonitorCanvas.ActualWidth > 0 ? MonitorCanvas.ActualWidth : 276;
+            double canvasHeight = MonitorCanvas.ActualHeight > 0 ? MonitorCanvas.ActualHeight : 100;
 
             double scaleX = canvasWidth / totalWidth;
             double scaleY = canvasHeight / totalHeight;
@@ -489,70 +490,24 @@ namespace ScreenShift
 
         private void ThemeButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button btn)
+            ThemePopup.IsOpen = !ThemePopup.IsOpen;
+        }
+
+        private void ThemeOption_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn && btn.Tag is string theme)
             {
-                // Create a fresh ContextMenu each time to pick up current theme resources
-                var contextMenu = CreateThemeContextMenu();
-                contextMenu.PlacementTarget = btn;
-                contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
-                contextMenu.IsOpen = true;
+                ApplyTheme(theme);
+                ThemePopup.IsOpen = false;
             }
         }
 
-        private System.Windows.Controls.ContextMenu CreateThemeContextMenu()
+        private void ThemeMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            var contextMenu = new System.Windows.Controls.ContextMenu();
-            
-            // Apply style from resources
-            if (System.Windows.Application.Current.TryFindResource("ModernContextMenuStyle") is Style contextMenuStyle)
+            if (sender is System.Windows.Controls.MenuItem item && item.Tag is string theme)
             {
-                contextMenu.Style = contextMenuStyle;
+                ApplyTheme(theme);
             }
-
-            var themes = new[] { ("System Default", "System"), ("Light", "Light"), ("Dark", "Dark") };
-            
-            foreach (var (header, tag) in themes)
-            {
-                var menuItem = new System.Windows.Controls.MenuItem
-                {
-                    Header = header,
-                    Tag = tag,
-                    IsCheckable = true,
-                    IsChecked = tag == _currentTheme
-                };
-                
-                // Apply style from resources
-                if (System.Windows.Application.Current.TryFindResource("ModernMenuItemStyle") is Style menuItemStyle)
-                {
-                    menuItem.Style = menuItemStyle;
-                }
-                
-                menuItem.Click += ThemeMenuItem_Click;
-                contextMenu.Items.Add(menuItem);
-            }
-
-            // Add separator and startup option
-            contextMenu.Items.Add(new Separator());
-            
-            var startupItem = new System.Windows.Controls.MenuItem
-            {
-                Header = "Start with Windows",
-                IsCheckable = true,
-                IsChecked = false
-            };
-            
-            if (System.Windows.Application.Current.TryFindResource("ModernMenuItemStyle") is Style startupStyle)
-            {
-                startupItem.Style = startupStyle;
-            }
-            
-            // Check current startup state
-            _ = UpdateStartupMenuItemAsync(startupItem);
-            
-            startupItem.Click += StartupMenuItem_Click;
-            contextMenu.Items.Add(startupItem);
-
-            return contextMenu;
         }
 
         private async Task UpdateStartupMenuItemAsync(System.Windows.Controls.MenuItem menuItem)
@@ -635,15 +590,7 @@ namespace ScreenShift
                 }
             }
         }
-
-        private void ThemeMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is System.Windows.Controls.MenuItem item && item.Tag is string theme)
-            {
-                ApplyTheme(theme);
-            }
-        }
-
+        
         private void ApplyTheme(string theme)
         {
             _currentTheme = theme;
@@ -698,7 +645,8 @@ namespace ScreenShift
 
         private void Window_Deactivated(object sender, EventArgs e)
         {
-            // Hide when clicking outside
+            if (_isContextMenuOpen)
+                return;
             this.Hide();
         }
 
