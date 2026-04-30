@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.ComponentModel;
 using System.Collections.ObjectModel;
@@ -9,6 +10,7 @@ using System.Windows.Input;
 using System.Threading.Tasks;
 using System.Drawing;
 using System.Windows.Forms;
+using System.Text.Json;
 using Windows.ApplicationModel;
 
 namespace ScreenShift
@@ -21,6 +23,11 @@ namespace ScreenShift
         private bool _isDisplayOperationInProgress;
         private bool _isContextMenuOpen = false;
 
+        private static readonly string ThemeSettingsFilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ScreenShift",
+            "theme-settings.json");
+
         public MainWindow()
         {
             InitializeComponent();
@@ -29,6 +36,9 @@ namespace ScreenShift
             
             // Listen for system theme changes
             Microsoft.Win32.SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
+            
+            // Load saved theme preference
+            LoadThemePreference();
             
             // Initialize theme
             UpdateThemeVisuals();
@@ -595,6 +605,7 @@ namespace ScreenShift
         {
             _currentTheme = theme;
             UpdateThemeVisuals();
+            SaveThemePreference();
         }
 
         private void UpdateThemeVisuals()
@@ -630,6 +641,32 @@ namespace ScreenShift
             
             // Re-render visual layout to apply new colors
             UpdateVisualLayout();
+        }
+
+        private void SaveThemePreference()
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(ThemeSettingsFilePath)!);
+                File.WriteAllText(ThemeSettingsFilePath, JsonSerializer.Serialize(_currentTheme));
+            }
+            catch { }
+        }
+
+        private void LoadThemePreference()
+        {
+            try
+            {
+                if (File.Exists(ThemeSettingsFilePath))
+                {
+                    var theme = JsonSerializer.Deserialize<string>(File.ReadAllText(ThemeSettingsFilePath));
+                    if (theme == "System" || theme == "Light" || theme == "Dark")
+                    {
+                        _currentTheme = theme;
+                    }
+                }
+            }
+            catch { }
         }
 
         private void RefreshButton_Click(object sender, RoutedEventArgs e)

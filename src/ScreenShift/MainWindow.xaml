@@ -13,7 +13,7 @@
          ResizeMode="NoResize"
          Deactivated="Window_Deactivated">
     
-    <Window.Resources>
+<Window.Resources>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
         
@@ -91,7 +91,7 @@
         </Style>
 
         <!-- Utility Icon Button -->
-        <Style x:Key="UtilityButtonStyle" TargetType="Button">
+<Style x:Key="UtilityButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="FontSize" Value="11"/>
@@ -130,8 +130,9 @@
         </Style>
     </Window.Resources>
     
-    <!-- Main container with Windows 11 style -->
-    <Border Background="{DynamicResource AppBackgroundBrush}" 
+<!-- Main container with Windows 11 style -->
+    <Border x:Name="MainBorder" 
+            Background="{DynamicResource AppBackgroundBrush}" 
             CornerRadius="16" 
             BorderBrush="{DynamicResource BorderBrush}" 
             BorderThickness="1"
@@ -427,6 +428,9 @@
                         BorderThickness="1" 
                         CornerRadius="8" 
                         Padding="6">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.3" Color="Black"/>
+                    </Border.Effect>
                     <StackPanel>
                         <Button Content="System Default" 
                                 Tag="System" 

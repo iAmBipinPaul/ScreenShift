@@ -10,6 +10,7 @@
      
     <!-- Border -->
     <SolidColorBrush x:Key="BorderBrush" Color="#244044"/>
+    <Color x:Key="SurfaceHoverColor">#163134</Color>
      
     <!-- Text -->
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E6ECE9"/>
@@ -23,6 +24,8 @@
     <SolidColorBrush x:Key="AccentPressedBrush" Color="#063F3B"/>
     <SolidColorBrush x:Key="GoldAccentBrush" Color="#E3B341"/>
     <SolidColorBrush x:Key="StatusPillBackgroundBrush" Color="#071A1B"/>
+    <Color x:Key="AccentColor">#0B6B61</Color>
+    <Color x:Key="BorderColor">#244044</Color>
      
     <!-- Monitor Icons -->
     <SolidColorBrush x:Key="MonitorIconBackgroundBrush" Color="#0D2224"/>
